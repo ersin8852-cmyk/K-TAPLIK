@@ -309,20 +309,19 @@ async function doSearch(){
   if(!q) return;
   searchResults.innerHTML = `<div class="status">Aranıyor...</div>`;
   try{
-    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20`);
+    const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,first_publish_year,cover_i`);
     const data = await res.json();
-    if(!data.items || data.items.length === 0){
+    if(!data.docs || data.docs.length === 0){
       searchResults.innerHTML = `<div class="status">Sonuç bulunamadı.</div>`;
       return;
     }
-    const books = data.items.map(item => {
-      const info = item.volumeInfo || {};
+    const books = data.docs.map(item => {
       return {
-        id: item.id,
-        title: info.title || 'Başlıksız',
-        author: (info.authors || []).join(', ') || 'Yazar bilinmiyor',
-        year: info.publishedDate ? info.publishedDate.slice(0,4) : '',
-        cover: info.imageLinks ? (info.imageLinks.thumbnail || info.imageLinks.smallThumbnail) : ''
+        id: item.key ? item.key.replace('/works/','') : Math.random().toString(36).slice(2),
+        title: item.title || 'Başlıksız',
+        author: (item.author_name || []).join(', ') || 'Yazar bilinmiyor',
+        year: item.first_publish_year ? String(item.first_publish_year) : '',
+        cover: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-M.jpg` : ''
       };
     });
     searchResults.innerHTML = books.map(b => bookCardHTML(b, isInLibrary(b.id))).join('');
