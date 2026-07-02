@@ -330,6 +330,7 @@ function removeBookFromFolder(folderId, bookId){
 }
 
 function escapeHTML(s){ if(!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function httpsify(url){ if(!url) return ''; return url.replace(/^http:\/\//i,'https://'); }
 
 // ---- SEARCH ----
 let lastSearchResults = [];
@@ -428,7 +429,7 @@ function rankByRelevance(books, query){
 
 function bookCardHTML(book){
   const inLib = isInLibrary(book.id);
-  const coverStyle = book.cover ? `background-image:url('${book.cover}')` : '';
+  const coverStyle = book.cover ? `background-image:url('${httpsify(book.cover)}')` : '';
   return `
   <div class="card" data-id="${book.id}">
     <div class="cover" style="${coverStyle}"></div>
@@ -503,7 +504,7 @@ function renderUnfiled(){
 }
 
 function libraryBookHTML(book, folderId){
-  const coverStyle = book.cover ? `background-image:url('${book.cover}')` : '';
+  const coverStyle = book.cover ? `background-image:url('${httpsify(book.cover)}')` : '';
   return `
   <div class="card" data-id="${book.id}">
     <div class="cover" style="${coverStyle}"></div>
@@ -574,7 +575,7 @@ async function openDetail(bookId){
     }
   }catch(e){}
 
-  const coverStyle = book.cover ? `background-image:url('${book.cover}')` : '';
+  const coverStyle = book.cover ? `background-image:url('${httpsify(book.cover)}')` : '';
   const inLib = isInLibrary(book.id);
 
   content.innerHTML = `
@@ -781,6 +782,20 @@ function switchTab(tab){
 }
 document.getElementById('tabSearch').addEventListener('click',()=>switchTab('search'));
 document.getElementById('tabLibrary').addEventListener('click',()=>switchTab('library'));
+
+// ---- ESKİ KAYITLARI TEMİZLE (http -> https) ----
+(function migrateHttpCovers(){
+  let lib = getLibrary();
+  let changed = false;
+  lib = lib.map(b=>{
+    if(b.cover && b.cover.startsWith('http://')){
+      changed = true;
+      return {...b, cover: httpsify(b.cover)};
+    }
+    return b;
+  });
+  if(changed) saveLibrary(lib);
+})();
 
 // ---- SERVICE WORKER ----
 if('serviceWorker' in navigator){
