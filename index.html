@@ -338,41 +338,77 @@ let lastSearchResults = [];
 document.getElementById('searchBtn').addEventListener('click', doSearch);
 document.getElementById('searchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') doSearch(); });
 
+// Google Books API'sine tek bir sorgu gönderir, ham "items" dizisini döner
+async function fetchBooks(query){
+  try{
+    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=40&printType=books&orderBy=relevance&key=${API_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    return data.items || [];
+  }catch(e){
+    return [];
+  }
+}
+
+// API'den gelen ham item'ı uygulamanın kullandığı kitap objesine çevirir
+function mapVolumeItem(item){
+  const info = item.volumeInfo || {};
+  return {
+    id: item.id,
+    title: info.title || 'Başlıksız',
+    subtitle: info.subtitle || '',
+    author: (info.authors||[]).join(', ') || 'Yazar bilinmiyor',
+    year: info.publishedDate ? info.publishedDate.slice(0,4) : '',
+    cover: info.imageLinks ? ((info.imageLinks.thumbnail||info.imageLinks.smallThumbnail||'').replace('http://','https://')) : '',
+    pages: info.pageCount || '',
+    genre: (info.categories||[]).join(', ') || '',
+    description: info.description || '',
+    publisher: info.publisher || '',
+    language: info.language || '',
+    isbn: (info.industryIdentifiers||[]).map(i=>i.identifier).join(', ') || '',
+    ratingsCount: info.ratingsCount || 0,
+    averageRating: info.averageRating || 0
+  };
+}
+
 async function doSearch(){
   const q = document.getElementById('searchInput').value.trim();
   if(!q) return;
   const el = document.getElementById('searchResults');
   el.innerHTML = `<div class="status"><div class="status-spinner"></div>Aranıyor…</div>`;
   try{
-    // Eğer girilen değer sadece rakamlardan oluşuyorsa (10-13 hane) otomatik ISBN araması yap
     const digitsOnly = q.replace(/[^0-9Xx]/g,'');
     const isLikelyISBN = digitsOnly.length >= 10 && digitsOnly.length <= 13 && digitsOnly.length === q.replace(/[-\s]/g,'').length;
-    const searchQuery = isLikelyISBN ? `isbn:${digitsOnly}` : q;
-    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=40&key=${API_KEY}`);
-    const data = await res.json();
-    if(!data.items||data.items.length===0){
-      el.innerHTML=`<div class="status">Sonuç bulunamadı.</div>`; return;
+
+    let rawItems = [];
+
+    if(isLikelyISBN){
+      rawItems = await fetchBooks(`isbn:${digitsOnly}`);
+    } else {
+      // İki farklı sorgu stratejisi paralel çalışır:
+      // 1) intitle: -> Google'a "bu kelimeler başlıkta geçsin" der, çok daha isabetli sonuç verir
+      // 2) düz metin -> daha geniş kapsam, intitle'ın kaçırdığı kayıtları yakalar
+      const queries = [`intitle:${q}`, q];
+      const results = await Promise.all(queries.map(qq => fetchBooks(qq)));
+
+      // Sonuçları birleştir, aynı kitabı (id) tekrar ekleme
+      const merged = new Map();
+      results.flat().forEach(item => {
+        if(!merged.has(item.id)) merged.set(item.id, item);
+      });
+      rawItems = Array.from(merged.values());
     }
-    lastSearchResults = data.items.map(item=>{
-      const info = item.volumeInfo||{};
-      return {
-        id: item.id,
-        title: info.title||'Başlıksız',
-        author: (info.authors||[]).join(', ')||'Yazar bilinmiyor',
-        year: info.publishedDate ? info.publishedDate.slice(0,4) : '',
-        cover: info.imageLinks?((info.imageLinks.thumbnail||info.imageLinks.smallThumbnail||'').replace('http://','https://')):'',
-        pages: info.pageCount||'',
-        genre: (info.categories||[]).join(', ')||'',
-        description: info.description||'',
-        publisher: info.publisher||'',
-        language: info.language||'',
-        isbn: (info.industryIdentifiers||[]).map(i=>i.identifier).join(', ')||''
-      };
-    });
+
+    if(rawItems.length === 0){
+      el.innerHTML = `<div class="status">Sonuç bulunamadı.</div>`;
+      return;
+    }
+
+    lastSearchResults = rawItems.map(mapVolumeItem);
     lastSearchResults = rankByRelevance(lastSearchResults, q);
     el.innerHTML = lastSearchResults.map(b=>bookCardHTML(b)).join('');
   }catch(e){
-    el.innerHTML=`<div class="status">Bağlantı hatası. Tekrar dene.</div>`;
+    el.innerHTML = `<div class="status">Bağlantı hatası. Tekrar dene.</div>`;
   }
 }
 
@@ -386,13 +422,15 @@ function normalize(str){
     .trim();
 }
 
-// Arama kelimesine göre sonuçları alaka düzeyine göre yeniden sıralar
+// Arama kelimesine göre sonuçları alaka düzeyine ve popülerliğe göre yeniden sıralar
 function rankByRelevance(books, query){
   const q = normalize(query);
   const qWords = q.split(/\s+/).filter(Boolean);
 
   function score(book){
     const title = normalize(book.title);
+    const fullTitle = normalize(`${book.title} ${book.subtitle||''}`.trim());
+    const author = normalize(book.author);
     const isbn = (book.isbn||'').replace(/[^0-9Xx]/g,'');
     const qDigits = query.replace(/[^0-9Xx]/g,'');
 
@@ -410,13 +448,28 @@ function rankByRelevance(books, query){
     // Başlık, arama kelimesini bütün olarak içeriyor
     if(title.includes(q)) s += 100;
 
-    // Her kelime başlıkta geçiyor mu
+    // Alt başlıkta geçiyor ama ana başlıkta geçmiyorsa daha düşük puan
+    if(fullTitle.includes(q) && !title.includes(q)) s += 60;
+
+    // Her kelime başlıkta (+ alt başlıkta) geçiyor mu
     let wordMatches = 0;
-    qWords.forEach(w=>{ if(title.includes(w)) wordMatches++; });
+    qWords.forEach(w=>{ if(fullTitle.includes(w)) wordMatches++; });
     s += wordMatches * 20;
+
+    // Sorgudaki kelimelerin ne kadarı eşleşti (eksik kelime doğal olarak daha az puan alır)
+    const matchRatio = qWords.length ? wordMatches / qWords.length : 0;
+    s += matchRatio * 40;
+
+    // Yazar adı sorguda geçiyorsa (kişi hem yazar hem kitap adını yazmış olabilir)
+    if(author && q.includes(author)) s += 80;
 
     // Kapak görseli olan sonuçlar biraz öncelikli (daha güvenilir kayıt olma ihtimali yüksek)
     if(book.cover) s += 5;
+
+    // Popülerlik sinyali: değerlendirme sayısı ve ortalama puan
+    // Log ölçekli, aşırı büyümesin diye tavan konuldu
+    if(book.ratingsCount) s += Math.min(Math.log10(book.ratingsCount + 1) * 15, 60);
+    if(book.averageRating) s += book.averageRating * 3;
 
     return s;
   }
