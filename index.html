@@ -347,7 +347,7 @@ async function doSearch(){
     const digitsOnly = q.replace(/[^0-9Xx]/g,'');
     const isLikelyISBN = digitsOnly.length >= 10 && digitsOnly.length <= 13 && digitsOnly.length === q.replace(/[-\s]/g,'').length;
     const searchQuery = isLikelyISBN ? `isbn:${digitsOnly}` : q;
-    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=40&orderBy=relevance&key=${API_KEY}`);
+    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=40&key=${API_KEY}`);
     const data = await res.json();
     if(!data.items||data.items.length===0){
       el.innerHTML=`<div class="status">Sonuç bulunamadı.</div>`; return;
