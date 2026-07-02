@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f0f0f">
+<title>Kitaplık</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0f0f0f;
+  --surface:#1a1a1a;
+  --surface2:#242424;
+  --border:#2e2e2e;
+  --text:#f0ede8;
+  --text2:#888;
+  --accent:#c9a96e;
+  --accent2:#e8c99a;
+  --danger:#e05c5c;
+  --green:#5cb87a;
+  --radius:12px;
+}
+html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+
+/* NAV */
+nav{
+  position:sticky;top:0;z-index:100;
+  background:rgba(15,15,15,0.92);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  padding:0 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  height:56px;
+}
+.nav-logo{
+  font-family:'Fraunces',serif;
+  font-size:1.3rem;font-weight:600;
+  color:var(--accent);letter-spacing:0.01em;
+}
+.nav-tabs{display:flex;gap:4px;}
+.nav-tab{
+  background:none;border:none;
+  color:var(--text2);font-size:0.82rem;font-family:'Inter',sans-serif;
+  padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .2s;
+}
+.nav-tab.active{background:var(--surface2);color:var(--text);}
+
+/* VIEWS */
+.view{display:none;max-width:600px;margin:0 auto;padding:24px 16px 80px;}
+.view.active{display:block;}
+
+/* SEARCH */
+.search-wrap{position:relative;margin-bottom:24px;}
+.search-wrap input{
+  width:100%;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 50px 14px 18px;
+  font-size:1rem;color:var(--text);font-family:'Inter',sans-serif;
+  transition:border-color .2s;
+}
+.search-wrap input:focus{outline:none;border-color:var(--accent);}
+.search-wrap input::placeholder{color:var(--text2);}
+.search-wrap button{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  background:var(--accent);border:none;border-radius:8px;
+  width:34px;height:34px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.search-wrap button svg{width:16px;height:16px;stroke:#0f0f0f;fill:none;stroke-width:2.5;}
+.publisher-wrap{margin-bottom:20px;margin-top:-14px;}
+.publisher-wrap input{
+  width:100%;background:transparent;border:1px solid var(--border);
+  border-radius:10px;padding:10px 14px;
+  font-size:0.84rem;color:var(--text2);font-family:'Inter',sans-serif;
+  transition:border-color .2s;
+}
+.publisher-wrap input:focus{outline:none;border-color:var(--accent);color:var(--text);}
+.publisher-wrap input::placeholder{color:var(--text2);opacity:0.7;}
+
+/* CARDS */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px;
+  display:flex;gap:14px;margin-bottom:10px;
+  cursor:pointer;transition:border-color .2s, background .2s;
+}
+.card:hover{border-color:var(--accent);background:var(--surface2);}
+.cover{
+  width:54px;height:76px;flex-shrink:0;border-radius:6px;
+  background:var(--surface2);background-size:cover;background-position:center;
+  border:1px solid var(--border);
+}
+.card-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;}
+.card-title{
+  font-family:'Fraunces',serif;font-size:1rem;font-weight:600;
+  line-height:1.3;color:var(--text);
+}
+.card-author{font-size:0.82rem;color:var(--text2);}
+.card-meta{font-size:0.74rem;color:var(--text2);margin-top:auto;}
+.card-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.btn{
+  border:none;border-radius:8px;padding:6px 14px;
+  font-size:0.78rem;font-family:'Inter',sans-serif;font-weight:500;
+  cursor:pointer;transition:opacity .15s;white-space:nowrap;
+}
+.btn:active{opacity:0.7;}
+.btn-add{background:var(--accent);color:#0f0f0f;}
+.btn-added{background:var(--surface2);color:var(--green);border:1px solid var(--green);}
+.btn-remove{background:transparent;color:var(--danger);border:1px solid var(--danger);}
+.btn-detail{background:var(--surface2);color:var(--text2);border:1px solid var(--border);}
+
+/* STATUS */
+.status{text-align:center;padding:40px 20px;color:var(--text2);font-size:0.9rem;}
+.status-spinner{
+  width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* EMPTY */
+.empty{text-align:center;padding:60px 20px;}
+.empty-icon{font-size:2.5rem;margin-bottom:12px;opacity:0.3;}
+.empty p{color:var(--text2);font-size:0.88rem;line-height:1.6;}
+
+/* LIBRARY */
+.lib-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;
+}
+.lib-header h2{font-family:'Fraunces',serif;font-size:1.2rem;font-weight:300;}
+.btn-new-folder{
+  background:var(--surface);border:1px solid var(--border);
+  color:var(--accent);border-radius:8px;padding:6px 14px;
+  font-size:0.8rem;cursor:pointer;font-family:'Inter',sans-serif;
+}
+
+/* FOLDERS */
+.folder{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);margin-bottom:12px;overflow:hidden;
+}
+.folder-header{
+  display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;
+  transition:background .15s;
+}
+.folder-header:hover{background:var(--surface2);}
+.folder-icon{font-size:1rem;}
+.folder-name{font-weight:500;font-size:0.95rem;flex:1;}
+.folder-count{font-size:0.78rem;color:var(--text2);}
+.folder-chevron{color:var(--text2);font-size:0.8rem;transition:transform .2s;}
+.folder.open .folder-chevron{transform:rotate(90deg);}
+.folder-body{display:none;border-top:1px solid var(--border);}
+.folder.open .folder-body{display:block;}
+.folder-actions{
+  padding:10px 16px;display:flex;gap:8px;
+  border-bottom:1px solid var(--border);
+}
+.btn-folder-rename,.btn-folder-delete{
+  background:none;border:none;font-size:0.75rem;
+  cursor:pointer;padding:4px 8px;border-radius:6px;font-family:'Inter',sans-serif;
+}
+.btn-folder-rename{color:var(--text2);}
+.btn-folder-delete{color:var(--danger);}
+.folder-books{padding:8px;}
+
+/* DETAIL MODAL */
+.modal-overlay{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);
+  overflow-y:auto;
+}
+.modal-overlay.open{display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;}
+.modal{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;width:100%;max-width:560px;
+  margin:auto;overflow:hidden;position:relative;
+}
+.modal-top{
+  display:flex;gap:16px;padding:20px;
+  background:linear-gradient(135deg,var(--surface2) 0%,var(--surface) 100%);
+  border-bottom:1px solid var(--border);
+}
+.modal-cover{
+  width:80px;height:114px;flex-shrink:0;border-radius:8px;
+  background:var(--surface2);background-size:cover;background-position:center;
+  border:1px solid var(--border);
+}
+.modal-title-block{flex:1;min-width:0;}
+.modal-title{
+  font-family:'Fraunces',serif;font-size:1.25rem;font-weight:600;
+  line-height:1.3;margin-bottom:6px;
+}
+.modal-author{color:var(--accent);font-size:0.9rem;margin-bottom:10px;}
+.modal-badges{display:flex;flex-wrap:wrap;gap:6px;}
+.badge{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:3px 10px;font-size:0.72rem;color:var(--text2);
+}
+.modal-body{padding:20px;}
+.modal-section{margin-bottom:20px;}
+.modal-section-title{
+  font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;
+  color:var(--text2);margin-bottom:10px;
+}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.info-item{background:var(--surface2);border-radius:8px;padding:10px 12px;}
+.info-label{font-size:0.7rem;color:var(--text2);margin-bottom:2px;}
+.info-value{font-size:0.9rem;font-weight:500;}
+.description{
+  font-size:0.86rem;color:var(--text2);line-height:1.6;
+  max-height:120px;overflow:hidden;position:relative;
+}
+.description.expanded{max-height:none;}
+.desc-toggle{
+  background:none;border:none;color:var(--accent);font-size:0.8rem;
+  cursor:pointer;margin-top:6px;font-family:'Inter',sans-serif;
+}
+.modal-close{
+  position:absolute;top:14px;right:14px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:50%;width:30px;height:30px;font-size:1rem;
+  cursor:pointer;color:var(--text2);display:flex;align-items:center;justify-content:center;
+}
+.modal-footer{
+  padding:16px 20px;border-top:1px solid var(--border);
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+}
+.modal-footer .btn{flex:1;}
+
+/* ADD TO FOLDER MODAL */
+.folder-pick{
+  padding:12px 20px;display:flex;flex-direction:column;gap:8px;
+  border-top:1px solid var(--border);
+}
+.folder-pick-label{font-size:0.78rem;color:var(--text2);margin-bottom:4px;}
+.folder-pick-item{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:10px 14px;cursor:pointer;
+  display:flex;align-items:center;gap:8px;font-size:0.88rem;
+  transition:border-color .15s;
+}
+.folder-pick-item:hover{border-color:var(--accent);}
+.folder-pick-new{
+  color:var(--accent);border-style:dashed;
+}
+
+/* INLINE FOLDER NAME INPUT */
+.inline-input{
+  background:var(--surface2);border:1px solid var(--accent);
+  border-radius:8px;padding:8px 12px;color:var(--text);
+  font-size:0.88rem;font-family:'Inter',sans-serif;width:100%;
+}
+.inline-input:focus{outline:none;}
+
+/* SECTION TITLE */
+.section-label{
+  font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;
+  color:var(--text2);margin-bottom:14px;
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Kitaplık</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="tabSearch">Ara</button>
+    <button class="nav-tab" id="tabLibrary">Kütüphanem</button>
+  </div>
+</nav>
+
+<!-- SEARCH VIEW -->
+<div class="view active" id="searchView">
+  <div class="search-wrap">
+    <input type="text" id="searchInput" placeholder="Kitap adı veya yazar ara…" />
+    <button id="searchBtn">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+    </button>
+  </div>
+  <div class="publisher-wrap">
+    <input type="text" id="publisherInput" placeholder="Yayınevi (opsiyonel) — örn. İthaki, Can Yayınları" />
+  </div>
+  <div id="searchResults"></div>
+</div>
+
+<!-- LIBRARY VIEW -->
+<div class="view" id="libraryView">
+  <div class="lib-header">
+    <h2>Koleksiyonlarım</h2>
+    <button class="btn-new-folder" id="btnNewFolder">+ Yeni Klasör</button>
+  </div>
+  <div id="newFolderInput" style="display:none;margin-bottom:12px;">
+    <input class="inline-input" id="folderNameInput" placeholder="Klasör adı…" />
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button class="btn btn-add" id="confirmNewFolder">Oluştur</button>
+      <button class="btn btn-detail" id="cancelNewFolder">İptal</button>
+    </div>
+  </div>
+  <div id="foldersContainer"></div>
+  <div id="unfiledSection"></div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+const API_KEY = 'AIzaSyAZhPfNsWRQYl48Xlph2jhBfPJK12mJjJ8';
+const LIB_KEY = 'kitaplik_v2_library';
+const FOLDERS_KEY = 'kitaplik_v2_folders';
+
+// ---- STORAGE ----
+function getLibrary(){ try{ return JSON.parse(localStorage.getItem(LIB_KEY))||[]; }catch(e){ return []; } }
+function saveLibrary(l){ localStorage.setItem(LIB_KEY, JSON.stringify(l)); }
+function getFolders(){ try{ return JSON.parse(localStorage.getItem(FOLDERS_KEY))||[]; }catch(e){ return []; } }
+function saveFolders(f){ localStorage.setItem(FOLDERS_KEY, JSON.stringify(f)); }
+function isInLibrary(id){ return getLibrary().some(b=>b.id===id); }
+
+function addToLibrary(book){
+  const lib = getLibrary();
+  if(!lib.some(b=>b.id===book.id)){ lib.unshift(book); saveLibrary(lib); }
+}
+function removeFromLibrary(id){
+  const lib = getLibrary().filter(b=>b.id!==id);
+  // also remove from folders
+  const folders = getFolders().map(f=>({...f, books: f.books.filter(bid=>bid!==id)}));
+  saveLibrary(lib); saveFolders(folders);
+}
+function addBookToFolder(folderId, bookId){
+  const folders = getFolders();
+  const f = folders.find(f=>f.id===folderId);
+  if(f && !f.books.includes(bookId)){ f.books.push(bookId); saveFolders(folders); }
+}
+function removeBookFromFolder(folderId, bookId){
+  const folders = getFolders();
+  const f = folders.find(f=>f.id===folderId);
+  if(f){ f.books = f.books.filter(id=>id!==bookId); saveFolders(folders); }
+}
+
+function escapeHTML(s){ if(!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function httpsify(url){ if(!url) return ''; return url.replace(/^http:\/\//i,'https://'); }
+
+// ---- SEARCH ----
+let lastSearchResults = [];
+
+document.getElementById('searchBtn').addEventListener('click', doSearch);
+document.getElementById('searchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') doSearch(); });
+document.getElementById('publisherInput').addEventListener('keydown', e=>{ if(e.key==='Enter') doSearch(); });
+
+async function doSearch(){
+  const q = document.getElementById('searchInput').value.trim();
+  const publisher = document.getElementById('publisherInput').value.trim();
+  if(!q) return;
+  const el = document.getElementById('searchResults');
+  el.innerHTML = `<div class="status"><div class="status-spinner"></div>Aranıyor…</div>`;
+  try{
+    // Eğer girilen değer sadece rakamlardan oluşuyorsa (10-13 hane) otomatik ISBN araması yap
+    const digitsOnly = q.replace(/[^0-9Xx]/g,'');
+    const isLikelyISBN = digitsOnly.length >= 10 && digitsOnly.length <= 13 && digitsOnly.length === q.replace(/[-\s]/g,'').length;
+    let searchQuery = isLikelyISBN ? `isbn:${digitsOnly}` : q;
+    if(publisher && !isLikelyISBN){
+      searchQuery += `+inpublisher:"${publisher}"`;
+    }
+    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=40&key=${API_KEY}`);
+    const data = await res.json();
+    if(!data.items||data.items.length===0){
+      el.innerHTML=`<div class="status">Sonuç bulunamadı.</div>`; return;
+    }
+    lastSearchResults = data.items.map(item=>{
+      const info = item.volumeInfo||{};
+      return {
+        id: item.id,
+        title: info.title||'Başlıksız',
+        author: (info.authors||[]).join(', ')||'Yazar bilinmiyor',
+        year: info.publishedDate ? info.publishedDate.slice(0,4) : '',
+        cover: info.imageLinks?((info.imageLinks.thumbnail||info.imageLinks.smallThumbnail||'').replace('http://','https://')):'',
+        pages: info.pageCount||'',
+        genre: (info.categories||[]).join(', ')||'',
+        description: info.description||'',
+        publisher: info.publisher||'',
+        language: info.language||'',
+        isbn: (info.industryIdentifiers||[]).map(i=>i.identifier).join(', ')||''
+      };
+    });
+    lastSearchResults = rankByRelevance(lastSearchResults, q);
+    el.innerHTML = lastSearchResults.map(b=>bookCardHTML(b)).join('');
+  }catch(e){
+    el.innerHTML=`<div class="status">Bağlantı hatası. Tekrar dene.</div>`;
+  }
+}
+
+// Türkçe karakterleri normalize edip küçük harfe çevirir, karşılaştırmayı kolaylaştırır
+function normalize(str){
+  if(!str) return '';
+  return str.toLocaleLowerCase('tr')
+    .replace(/ı/g,'i').replace(/İ/g,'i')
+    .replace(/ğ/g,'g').replace(/ü/g,'u')
+    .replace(/ş/g,'s').replace(/ö/g,'o').replace(/ç/g,'c')
+    .trim();
+}
+
+// Arama kelimesine göre sonuçları alaka düzeyine göre yeniden sıralar
+function rankByRelevance(books, query){
+  const q = normalize(query);
+  const qWords = q.split(/\s+/).filter(Boolean);
+
+  function score(book){
+    const title = normalize(book.title);
+    const isbn = (book.isbn||'').replace(/[^0-9Xx]/g,'');
+    const qDigits = query.replace(/[^0-9Xx]/g,'');
+
+    let s = 0;
+
+    // ISBN tam eşleşmesi - en yüksek öncelik
+    if(qDigits.length >= 10 && isbn.includes(qDigits)) s += 1000;
+
+    // Başlık tam eşleşme
+    if(title === q) s += 500;
+
+    // Başlık, arama kelimesiyle başlıyor
+    if(title.startsWith(q)) s += 200;
+
+    // Başlık, arama kelimesini bütün olarak içeriyor
+    if(title.includes(q)) s += 100;
+
+    // Her kelime başlıkta geçiyor mu
+    let wordMatches = 0;
+    qWords.forEach(w=>{ if(title.includes(w)) wordMatches++; });
+    s += wordMatches * 20;
+
+    // Kapak görseli olan sonuçlar biraz öncelikli (daha güvenilir kayıt olma ihtimali yüksek)
+    if(book.cover) s += 5;
+
+    return s;
+  }
+
+  return books
+    .map(b=>({book:b, s:score(b)}))
+    .sort((a,b)=>b.s-a.s)
+    .map(x=>x.book);
+}
+
+function bookCardHTML(book){
+  const inLib = isInLibrary(book.id);
+  const coverStyle = book.cover ? `background-image:url('${httpsify(book.cover)}')` : '';
+  return `
+  <div class="card" data-id="${book.id}">
+    <div class="cover" style="${coverStyle}"></div>
+    <div class="card-info">
+      <div class="card-title">${escapeHTML(book.title)}</div>
+      <div class="card-author">${escapeHTML(book.author)}</div>
+      <div class="card-meta">${book.year||''}${book.pages?' · '+book.pages+' sayfa':''}</div>
+      <div class="card-actions">
+        <button class="btn btn-detail" data-action="detail" data-id="${book.id}">Detay</button>
+        ${inLib
+          ? `<button class="btn btn-remove" data-action="remove" data-id="${book.id}">Kaldır</button>`
+          : `<button class="btn btn-add" data-action="add" data-id="${book.id}">Ekle</button>`
+        }
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---- FOLDERS / LIBRARY ----
+function renderLibrary(){
+  renderFolders();
+  renderUnfiled();
+}
+
+function renderFolders(){
+  const folders = getFolders();
+  const lib = getLibrary();
+  const container = document.getElementById('foldersContainer');
+  if(folders.length===0){ container.innerHTML=''; return; }
+  container.innerHTML = folders.map(folder=>{
+    const books = folder.books.map(id=>lib.find(b=>b.id===id)).filter(Boolean);
+    return `
+    <div class="folder ${folder.open?'open':''}" data-folder-id="${folder.id}">
+      <div class="folder-header" data-action="toggle-folder" data-folder-id="${folder.id}">
+        <span class="folder-icon">📁</span>
+        <span class="folder-name">${escapeHTML(folder.name)}</span>
+        <span class="folder-count">${books.length} kitap</span>
+        <span class="folder-chevron">›</span>
+      </div>
+      <div class="folder-body">
+        <div class="folder-actions">
+          <button class="btn-folder-rename" data-action="rename-folder" data-folder-id="${folder.id}">✏️ Yeniden Adlandır</button>
+          <button class="btn-folder-delete" data-action="delete-folder" data-folder-id="${folder.id}">🗑 Klasörü Sil</button>
+        </div>
+        <div class="folder-books">
+          ${books.length===0
+            ? '<div style="padding:12px;color:var(--text2);font-size:0.82rem;">Klasör boş.</div>'
+            : books.map(b=>libraryBookHTML(b, folder.id)).join('')
+          }
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderUnfiled(){
+  const lib = getLibrary();
+  const folders = getFolders();
+  const filedIds = new Set(folders.flatMap(f=>f.books));
+  const unfiled = lib.filter(b=>!filedIds.has(b.id));
+  const el = document.getElementById('unfiledSection');
+  if(unfiled.length===0 && lib.length>0){ el.innerHTML=''; return; }
+  if(lib.length===0){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">📚</div><p>Kütüphanen boş.<br>Ara sekmesinden kitap ekle.</p></div>`;
+    return;
+  }
+  el.innerHTML = unfiled.length===0 ? '' : `
+    <div style="margin-top:16px;">
+      <div class="section-label">Sınıflandırılmamış (${unfiled.length})</div>
+      ${unfiled.map(b=>libraryBookHTML(b, null)).join('')}
+    </div>`;
+}
+
+function libraryBookHTML(book, folderId){
+  const coverStyle = book.cover ? `background-image:url('${httpsify(book.cover)}')` : '';
+  return `
+  <div class="card" data-id="${book.id}">
+    <div class="cover" style="${coverStyle}"></div>
+    <div class="card-info">
+      <div class="card-title">${escapeHTML(book.title)}</div>
+      <div class="card-author">${escapeHTML(book.author)}</div>
+      <div class="card-meta">${book.year||''}</div>
+      <div class="card-actions">
+        <button class="btn btn-detail" data-action="detail" data-id="${book.id}">Detay</button>
+        ${folderId
+          ? `<button class="btn btn-detail" data-action="remove-from-folder" data-id="${book.id}" data-folder-id="${folderId}">Klasörden Çıkar</button>`
+          : `<button class="btn btn-detail" data-action="move-to-folder" data-id="${book.id}">Klasöre Ekle</button>`
+        }
+        <button class="btn btn-remove" data-action="remove" data-id="${book.id}">Sil</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---- NEW FOLDER ----
+document.getElementById('btnNewFolder').addEventListener('click',()=>{
+  document.getElementById('newFolderInput').style.display='block';
+  document.getElementById('folderNameInput').focus();
+});
+document.getElementById('cancelNewFolder').addEventListener('click',()=>{
+  document.getElementById('newFolderInput').style.display='none';
+  document.getElementById('folderNameInput').value='';
+});
+document.getElementById('confirmNewFolder').addEventListener('click', createFolder);
+document.getElementById('folderNameInput').addEventListener('keydown',e=>{ if(e.key==='Enter') createFolder(); });
+
+function createFolder(){
+  const name = document.getElementById('folderNameInput').value.trim();
+  if(!name) return;
+  const folders = getFolders();
+  folders.push({id: Date.now().toString(), name, books:[], open:false});
+  saveFolders(folders);
+  document.getElementById('newFolderInput').style.display='none';
+  document.getElementById('folderNameInput').value='';
+  renderLibrary();
+}
+
+// ---- DETAIL MODAL ----
+async function openDetail(bookId){
+  let book = lastSearchResults.find(b=>b.id===bookId) || getLibrary().find(b=>b.id===bookId);
+  if(!book) return;
+  const overlay = document.getElementById('modalOverlay');
+  const content = document.getElementById('modalContent');
+  content.innerHTML = `<div class="status"><div class="status-spinner"></div>Yükleniyor…</div>`;
+  overlay.classList.add('open');
+
+  // Always fetch fresh full data from API
+  try{
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes/${bookId}?key=${API_KEY}`);
+    const d = await r.json();
+    if(d.volumeInfo){
+      const info = d.volumeInfo;
+      book = {
+        ...book,
+        pages: info.pageCount||'',
+        genre: (info.categories||[]).join(', ')||'',
+        description: info.description||'',
+        publisher: info.publisher||'',
+        isbn: (info.industryIdentifiers||[]).map(i=>i.identifier).join(', ')||'',
+        year: info.publishedDate ? info.publishedDate.slice(0,4) : book.year,
+        cover: info.imageLinks?((info.imageLinks.thumbnail||info.imageLinks.smallThumbnail||book.cover||'').replace('http://','https://')):book.cover,
+      };
+    }
+  }catch(e){}
+
+  const coverStyle = book.cover ? `background-image:url('${httpsify(book.cover)}')` : '';
+  const inLib = isInLibrary(book.id);
+
+  content.innerHTML = `
+    <button class="modal-close" id="closeModal">✕</button>
+    <div class="modal-top">
+      <div class="modal-cover" style="${coverStyle}"></div>
+      <div class="modal-title-block">
+        <div class="modal-title">${escapeHTML(book.title)}</div>
+        <div class="modal-author">${escapeHTML(book.author)}</div>
+        <div class="modal-badges">
+          ${book.year?`<span class="badge">${book.year}</span>`:''}
+          ${book.genre?`<span class="badge">${escapeHTML(book.genre)}</span>`:''}
+          ${book.language?`<span class="badge">${book.language.toUpperCase()}</span>`:''}
+        </div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <div class="modal-section-title">Kitap Bilgileri</div>
+        <div class="info-grid">
+          <div class="info-item"><div class="info-label">Sayfa Sayısı</div><div class="info-value">${book.pages||'—'}</div></div>
+          <div class="info-item"><div class="info-label">Yayın Yılı</div><div class="info-value">${book.year||'—'}</div></div>
+          <div class="info-item"><div class="info-label">Yayınevi</div><div class="info-value">${escapeHTML(book.publisher)||'—'}</div></div>
+          <div class="info-item"><div class="info-label">ISBN</div><div class="info-value" style="font-size:0.75rem">${escapeHTML(book.isbn)||'—'}</div></div>
+        </div>
+      </div>
+      ${book.description?`
+      <div class="modal-section">
+        <div class="modal-section-title">Açıklama</div>
+        <div class="description" id="modalDesc">${escapeHTML(book.description)}</div>
+        <button class="desc-toggle" id="descToggle">Devamını gör</button>
+      </div>`:''}
+      <div class="modal-section" id="authorBooksSection">
+        <div class="modal-section-title">Yazarın Diğer Eserleri</div>
+        <div id="authorBooks"><div class="status" style="padding:10px 0;">Yükleniyor…</div></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      ${inLib
+        ? `<button class="btn btn-remove" data-action="remove" data-id="${book.id}">Kütüphaneden Çıkar</button>`
+        : `<button class="btn btn-add" data-action="add" data-id="${book.id}">Kütüphaneye Ekle</button>`
+      }
+    </div>`;
+
+  overlay.classList.add('open');
+
+  document.getElementById('closeModal').addEventListener('click',()=>{
+    overlay.classList.remove('open');
+  });
+
+  const descEl = document.getElementById('modalDesc');
+  const toggleEl = document.getElementById('descToggle');
+  if(toggleEl){
+    toggleEl.addEventListener('click',()=>{
+      descEl.classList.toggle('expanded');
+      toggleEl.textContent = descEl.classList.contains('expanded') ? 'Daha az gör' : 'Devamını gör';
+    });
+  }
+
+  // fetch author's other books
+  if(book.author && book.author !== 'Yazar bilinmiyor'){
+    try{
+      const authorName = book.author.split(',')[0].trim();
+      const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=inauthor:${encodeURIComponent(authorName)}&maxResults=6&key=${API_KEY}`);
+      const d = await r.json();
+      const authorBooksEl = document.getElementById('authorBooks');
+      if(authorBooksEl){
+        if(!d.items||d.items.length===0){
+          authorBooksEl.innerHTML='<div style="color:var(--text2);font-size:0.82rem;">Bulunamadı.</div>';
+        } else {
+          const others = d.items.filter(i=>i.id!==book.id).slice(0,5);
+          authorBooksEl.innerHTML = others.map(i=>{
+            const info = i.volumeInfo||{};
+            const cov = info.imageLinks?((info.imageLinks.thumbnail||'').replace('http://','https://')):'';
+            return `<div style="display:flex;gap:10px;margin-bottom:8px;align-items:center;">
+              ${cov?`<img src="${cov}" style="width:32px;height:46px;border-radius:4px;object-fit:cover;" />`:'<div style="width:32px;height:46px;background:var(--surface2);border-radius:4px;"></div>'}
+              <div>
+                <div style="font-size:0.88rem;font-weight:500;">${escapeHTML(info.title||'')}</div>
+                <div style="font-size:0.75rem;color:var(--text2);">${info.publishedDate?info.publishedDate.slice(0,4):''}</div>
+              </div>
+            </div>`;
+          }).join('');
+        }
+      }
+    }catch(e){}
+  } else {
+    const s = document.getElementById('authorBooksSection');
+    if(s) s.style.display='none';
+  }
+}
+
+// ---- DELEGATED EVENTS ----
+document.addEventListener('click', e=>{
+  // modal close on overlay
+  if(e.target === document.getElementById('modalOverlay')){
+    document.getElementById('modalOverlay').classList.remove('open');
+    return;
+  }
+
+  const action = e.target.dataset.action;
+  if(!action) return;
+
+  const id = e.target.dataset.id;
+  const folderId = e.target.dataset.folderId;
+
+  if(action==='detail'){
+    openDetail(id); return;
+  }
+
+  if(action==='add'){
+    const book = lastSearchResults.find(b=>b.id===id) || getLibrary().find(b=>b.id===id);
+    if(book) addToLibrary({
+      id:book.id, title:book.title, author:book.author,
+      year:book.year, cover:book.cover, pages:book.pages,
+      genre:book.genre, description:book.description,
+      publisher:book.publisher, isbn:book.isbn
+    });
+    // re-render
+    if(document.getElementById('libraryView').classList.contains('active')) renderLibrary();
+    else doSearch();
+    // update modal footer if open
+    const overlay = document.getElementById('modalOverlay');
+    if(overlay.classList.contains('open')){
+      const footer = document.querySelector('.modal-footer');
+      if(footer) footer.innerHTML=`<button class="btn btn-remove" data-action="remove" data-id="${id}">Kütüphaneden Çıkar</button>`;
+    }
+    return;
+  }
+
+  if(action==='remove'){
+    removeFromLibrary(id);
+    if(document.getElementById('libraryView').classList.contains('active')) renderLibrary();
+    else doSearch();
+    document.getElementById('modalOverlay').classList.remove('open');
+    return;
+  }
+
+  if(action==='toggle-folder'){
+    const folders = getFolders();
+    const f = folders.find(f=>f.id===folderId);
+    if(f){ f.open=!f.open; saveFolders(folders); renderFolders(); }
+    return;
+  }
+
+  if(action==='delete-folder'){
+    if(!confirm('Bu klasörü silmek istediğine emin misin? Kitaplar silinmez.')) return;
+    let folders = getFolders().filter(f=>f.id!==folderId);
+    saveFolders(folders); renderLibrary(); return;
+  }
+
+  if(action==='rename-folder'){
+    const folders = getFolders();
+    const f = folders.find(f=>f.id===folderId);
+    if(!f) return;
+    const name = prompt('Yeni klasör adı:', f.name);
+    if(name && name.trim()){ f.name=name.trim(); saveFolders(folders); renderLibrary(); }
+    return;
+  }
+
+  if(action==='move-to-folder'){
+    showFolderPicker(id); return;
+  }
+
+  if(action==='remove-from-folder'){
+    removeBookFromFolder(folderId, id);
+    renderLibrary(); return;
+  }
+
+  if(action==='pick-folder'){
+    addBookToFolder(folderId, id);
+    document.getElementById('modalOverlay').classList.remove('open');
+    renderLibrary(); return;
+  }
+});
+
+function showFolderPicker(bookId){
+  const folders = getFolders();
+  if(folders.length===0){
+    alert('Önce bir klasör oluştur.');
+    switchTab('library'); return;
+  }
+  const overlay = document.getElementById('modalOverlay');
+  const content = document.getElementById('modalContent');
+  content.innerHTML = `
+    <button class="modal-close" id="closeModal">✕</button>
+    <div style="padding:20px;">
+      <div style="font-family:'Fraunces',serif;font-size:1.1rem;margin-bottom:16px;">Klasör Seç</div>
+      ${folders.map(f=>`
+        <div class="folder-pick-item" data-action="pick-folder" data-id="${bookId}" data-folder-id="${f.id}">
+          📁 ${escapeHTML(f.name)} <span style="margin-left:auto;color:var(--text2);font-size:0.78rem;">${f.books.length} kitap</span>
+        </div>`).join('')}
+    </div>`;
+  overlay.classList.add('open');
+  document.getElementById('closeModal').addEventListener('click',()=>overlay.classList.remove('open'));
+}
+
+// ---- TABS ----
+function switchTab(tab){
+  document.getElementById('searchView').classList.toggle('active', tab==='search');
+  document.getElementById('libraryView').classList.toggle('active', tab==='library');
+  document.getElementById('tabSearch').classList.toggle('active', tab==='search');
+  document.getElementById('tabLibrary').classList.toggle('active', tab==='library');
+  if(tab==='library') renderLibrary();
+}
+document.getElementById('tabSearch').addEventListener('click',()=>switchTab('search'));
+document.getElementById('tabLibrary').addEventListener('click',()=>switchTab('library'));
+
+// ---- ESKİ KAYITLARI TEMİZLE (http -> https) ----
+(function migrateHttpCovers(){
+  let lib = getLibrary();
+  let changed = false;
+  lib = lib.map(b=>{
+    if(b.cover && b.cover.startsWith('http://')){
+      changed = true;
+      return {...b, cover: httpsify(b.cover)};
+    }
+    return b;
+  });
+  if(changed) saveLibrary(lib);
+})();
+
+// ---- SERVICE WORKER ----
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('service-worker.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
