@@ -343,7 +343,11 @@ async function doSearch(){
   const el = document.getElementById('searchResults');
   el.innerHTML = `<div class="status"><div class="status-spinner"></div>Aranıyor…</div>`;
   try{
-    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20&key=${API_KEY}`);
+    // Eğer girilen değer sadece rakamlardan oluşuyorsa (10-13 hane) otomatik ISBN araması yap
+    const digitsOnly = q.replace(/[^0-9Xx]/g,'');
+    const isLikelyISBN = digitsOnly.length >= 10 && digitsOnly.length <= 13 && digitsOnly.length === q.replace(/[-\s]/g,'').length;
+    const searchQuery = isLikelyISBN ? `isbn:${digitsOnly}` : q;
+    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=40&orderBy=relevance&key=${API_KEY}`);
     const data = await res.json();
     if(!data.items||data.items.length===0){
       el.innerHTML=`<div class="status">Sonuç bulunamadı.</div>`; return;
@@ -355,7 +359,7 @@ async function doSearch(){
         title: info.title||'Başlıksız',
         author: (info.authors||[]).join(', ')||'Yazar bilinmiyor',
         year: info.publishedDate ? info.publishedDate.slice(0,4) : '',
-        cover: info.imageLinks?(info.imageLinks.thumbnail||info.imageLinks.smallThumbnail):'',
+        cover: info.imageLinks?((info.imageLinks.thumbnail||info.imageLinks.smallThumbnail||'').replace('http://','https://')):'',
         pages: info.pageCount||'',
         genre: (info.categories||[]).join(', ')||'',
         description: info.description||'',
@@ -364,10 +368,62 @@ async function doSearch(){
         isbn: (info.industryIdentifiers||[]).map(i=>i.identifier).join(', ')||''
       };
     });
+    lastSearchResults = rankByRelevance(lastSearchResults, q);
     el.innerHTML = lastSearchResults.map(b=>bookCardHTML(b)).join('');
   }catch(e){
     el.innerHTML=`<div class="status">Bağlantı hatası. Tekrar dene.</div>`;
   }
+}
+
+// Türkçe karakterleri normalize edip küçük harfe çevirir, karşılaştırmayı kolaylaştırır
+function normalize(str){
+  if(!str) return '';
+  return str.toLocaleLowerCase('tr')
+    .replace(/ı/g,'i').replace(/İ/g,'i')
+    .replace(/ğ/g,'g').replace(/ü/g,'u')
+    .replace(/ş/g,'s').replace(/ö/g,'o').replace(/ç/g,'c')
+    .trim();
+}
+
+// Arama kelimesine göre sonuçları alaka düzeyine göre yeniden sıralar
+function rankByRelevance(books, query){
+  const q = normalize(query);
+  const qWords = q.split(/\s+/).filter(Boolean);
+
+  function score(book){
+    const title = normalize(book.title);
+    const isbn = (book.isbn||'').replace(/[^0-9Xx]/g,'');
+    const qDigits = query.replace(/[^0-9Xx]/g,'');
+
+    let s = 0;
+
+    // ISBN tam eşleşmesi - en yüksek öncelik
+    if(qDigits.length >= 10 && isbn.includes(qDigits)) s += 1000;
+
+    // Başlık tam eşleşme
+    if(title === q) s += 500;
+
+    // Başlık, arama kelimesiyle başlıyor
+    if(title.startsWith(q)) s += 200;
+
+    // Başlık, arama kelimesini bütün olarak içeriyor
+    if(title.includes(q)) s += 100;
+
+    // Her kelime başlıkta geçiyor mu
+    let wordMatches = 0;
+    qWords.forEach(w=>{ if(title.includes(w)) wordMatches++; });
+    s += wordMatches * 20;
+
+    // Kapak görseli olan sonuçlar biraz öncelikli (daha güvenilir kayıt olma ihtimali yüksek)
+    if(book.cover) s += 5;
+
+    return s;
+  }
+
+  return books
+    .map(b=>({book:b, s:score(b)}))
+    .sort((a,b)=>b.s-a.s)
+    .map(x=>x.book);
 }
 
 function bookCardHTML(book){
@@ -496,6 +552,28 @@ async function openDetail(bookId){
   if(!book) return;
   const overlay = document.getElementById('modalOverlay');
   const content = document.getElementById('modalContent');
+  content.innerHTML = `<div class="status"><div class="status-spinner"></div>Yükleniyor…</div>`;
+  overlay.classList.add('open');
+
+  // Always fetch fresh full data from API
+  try{
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes/${bookId}?key=${API_KEY}`);
+    const d = await r.json();
+    if(d.volumeInfo){
+      const info = d.volumeInfo;
+      book = {
+        ...book,
+        pages: info.pageCount||'',
+        genre: (info.categories||[]).join(', ')||'',
+        description: info.description||'',
+        publisher: info.publisher||'',
+        isbn: (info.industryIdentifiers||[]).map(i=>i.identifier).join(', ')||'',
+        year: info.publishedDate ? info.publishedDate.slice(0,4) : book.year,
+        cover: info.imageLinks?((info.imageLinks.thumbnail||info.imageLinks.smallThumbnail||book.cover||'').replace('http://','https://')):book.cover,
+      };
+    }
+  }catch(e){}
+
   const coverStyle = book.cover ? `background-image:url('${book.cover}')` : '';
   const inLib = isInLibrary(book.id);
 
@@ -570,7 +648,7 @@ async function openDetail(bookId){
           const others = d.items.filter(i=>i.id!==book.id).slice(0,5);
           authorBooksEl.innerHTML = others.map(i=>{
             const info = i.volumeInfo||{};
-            const cov = info.imageLinks?(info.imageLinks.thumbnail||''):'';
+            const cov = info.imageLinks?((info.imageLinks.thumbnail||'').replace('http://','https://')):'';
             return `<div style="display:flex;gap:10px;margin-bottom:8px;align-items:center;">
               ${cov?`<img src="${cov}" style="width:32px;height:46px;border-radius:4px;object-fit:cover;" />`:'<div style="width:32px;height:46px;background:var(--surface2);border-radius:4px;"></div>'}
               <div>
