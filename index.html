@@ -298,6 +298,8 @@ nav{
 
 <script>
 const API_KEY = 'AIzaSyAZhPfNsWRQYl48Xlph2jhBfPJK12mJjJ8';
+const CSE_API_KEY = 'AIzaSyBul0dRDhOOKghF_RStrn33j351NI7p5Sg';
+const CSE_CX = '81790153d84b74ea6';
 const LIB_KEY = 'kitaplik_v2_library';
 const FOLDERS_KEY = 'kitaplik_v2_folders';
 
@@ -371,6 +373,57 @@ function mapVolumeItem(item){
   };
 }
 
+// Bir gerçek mağaza sonucunun başlığından site adı, "Fiyatı", "Satın Al" gibi
+// ekleri temizleyip geriye sade bir kitap adı bırakır.
+function cleanCseTitle(rawTitle){
+  let t = rawTitle || '';
+  const suffixPatterns = [
+    /\s*[\|\-–]\s*Kitapyurdu.*$/i,
+    /\s*[\|\-–]\s*D\s*&\s*R.*$/i,
+    /\s*[\|\-–]\s*(İ|I)defix.*$/i,
+    /\s*[:\|\-–]\s*Amazon(\.com)?(\.tr)?.*$/i,
+    /\s*[\|\-–]\s*Babil.*$/i,
+  ];
+  suffixPatterns.forEach(p => { t = t.replace(p, ''); });
+  t = t.replace(/\s*(Kitabı|Kitap|Fiyatı|Fiyatları|Satın Al|İncele|Yorumları)\s*$/gi, '');
+  return t.trim();
+}
+
+// Custom Search JSON API'sine sorgu gönderir, ham "items" dizisini döner
+async function fetchCseResults(query){
+  try{
+    const url = `https://www.googleapis.com/customsearch/v1?key=${CSE_API_KEY}&cx=${CSE_CX}&q=${encodeURIComponent(query)}&num=10`;
+    const res = await fetch(url);
+    const data = await res.json();
+    return data.items || [];
+  }catch(e){
+    return [];
+  }
+}
+
+// CSE sonucunu temiz başlık + kapak görseli + kaynak site bilgisiyle sadeleştirir
+function cseItemToStub(item){
+  const pm = item.pagemap || {};
+  const img = (pm.cse_image && pm.cse_image[0] && pm.cse_image[0].src)
+    || (pm.cse_thumbnail && pm.cse_thumbnail[0] && pm.cse_thumbnail[0].src)
+    || '';
+  return {
+    rawTitle: item.title,
+    cleanTitle: cleanCseTitle(item.title),
+    link: item.link,
+    displayLink: item.displayLink || '',
+    image: httpsify(img)
+  };
+}
+
+function renderSearchResults(el){
+  if(lastSearchResults.length === 0){
+    el.innerHTML = `<div class="status">Sonuç bulunamadı.</div>`;
+    return;
+  }
+  el.innerHTML = lastSearchResults.map(b=>bookCardHTML(b)).join('');
+}
+
 async function doSearch(){
   const q = document.getElementById('searchInput').value.trim();
   if(!q) return;
@@ -380,33 +433,77 @@ async function doSearch(){
     const digitsOnly = q.replace(/[^0-9Xx]/g,'');
     const isLikelyISBN = digitsOnly.length >= 10 && digitsOnly.length <= 13 && digitsOnly.length === q.replace(/[-\s]/g,'').length;
 
-    let rawItems = [];
-
     if(isLikelyISBN){
-      rawItems = await fetchBooks(`isbn:${digitsOnly}`);
-    } else {
-      // İki farklı sorgu stratejisi paralel çalışır:
-      // 1) intitle: -> Google'a "bu kelimeler başlıkta geçsin" der, çok daha isabetli sonuç verir
-      // 2) düz metin -> daha geniş kapsam, intitle'ın kaçırdığı kayıtları yakalar
-      const queries = [`intitle:${q}`, q];
-      const results = await Promise.all(queries.map(qq => fetchBooks(qq)));
-
-      // Sonuçları birleştir, aynı kitabı (id) tekrar ekleme
-      const merged = new Map();
-      results.flat().forEach(item => {
-        if(!merged.has(item.id)) merged.set(item.id, item);
-      });
-      rawItems = Array.from(merged.values());
-    }
-
-    if(rawItems.length === 0){
-      el.innerHTML = `<div class="status">Sonuç bulunamadı.</div>`;
+      const rawItems = await fetchBooks(`isbn:${digitsOnly}`);
+      lastSearchResults = rawItems.map(mapVolumeItem);
+      renderSearchResults(el);
       return;
     }
 
-    lastSearchResults = rawItems.map(mapVolumeItem);
-    lastSearchResults = rankByRelevance(lastSearchResults, q);
-    el.innerHTML = lastSearchResults.map(b=>bookCardHTML(b)).join('');
+    // 1) ADIM: Gerçek kitap satış sitelerinden (Kitapyurdu, D&R, İdefix, Amazon.com.tr, Babil)
+    // sonuç çek. Bu bize gerçekten var olan / satılan kitapların doğal popülerlik sırasını verir.
+    const cseItems = await fetchCseResults(q);
+    const stubs = cseItems.map(cseItemToStub).filter(s => s.cleanTitle);
+
+    // Aynı kitap birden fazla sitede çıkabilir; temiz başlığa göre tekilleştir
+    const seenTitles = new Map();
+    stubs.forEach(s=>{
+      const key = normalize(s.cleanTitle);
+      if(key && !seenTitles.has(key)) seenTitles.set(key, s);
+    });
+    const uniqueStubs = Array.from(seenTitles.values());
+
+    if(uniqueStubs.length === 0){
+      // Mağaza sitelerinden sonuç çıkmadıysa eski yönteme (Google Books) geri dön
+      const queries = [`intitle:${q}`, q];
+      const results = await Promise.all(queries.map(qq => fetchBooks(qq)));
+      const merged = new Map();
+      results.flat().forEach(item => { if(!merged.has(item.id)) merged.set(item.id, item); });
+      lastSearchResults = rankByRelevance(Array.from(merged.values()).map(mapVolumeItem), q);
+      renderSearchResults(el);
+      return;
+    }
+
+    // 2) ADIM: Her gerçek mağaza sonucu için Google Books'tan zengin veri
+    // (kapak, açıklama, ISBN, sayfa sayısı) çek. Mağazadaki sıralamayı (popülerlik) koru.
+    const enrichPromises = uniqueStubs.slice(0, 10).map(async (stub, idx)=>{
+      const items = await fetchBooks(`intitle:${stub.cleanTitle}`);
+      if(items.length > 0){
+        const book = mapVolumeItem(items[0]);
+        book.sourceLink = stub.link;
+        book.sourceSite = stub.displayLink;
+        book.rank = idx;
+        return book;
+      }
+      // Google Books'ta karşılığı yoksa, mağaza verisiyle "harici" bir kart oluştur
+      return {
+        id: 'cse-' + btoa(unescape(encodeURIComponent(stub.link))).slice(0,24).replace(/[^a-zA-Z0-9]/g,''),
+        title: stub.cleanTitle || stub.rawTitle,
+        author: 'Yazar bilinmiyor',
+        year: '',
+        cover: stub.image,
+        pages: '',
+        genre: '',
+        description: '',
+        publisher: '',
+        language: '',
+        isbn: '',
+        sourceLink: stub.link,
+        sourceSite: stub.displayLink,
+        external: true,
+        rank: idx
+      };
+    });
+
+    const enriched = await Promise.all(enrichPromises);
+    enriched.sort((a,b)=>a.rank-b.rank);
+
+    // Aynı Books kaydı birden fazla mağazadan eşleşmiş olabilir, tekilleştir
+    const merged = new Map();
+    enriched.forEach(b=>{ if(!merged.has(b.id)) merged.set(b.id, b); });
+
+    lastSearchResults = Array.from(merged.values());
+    renderSearchResults(el);
   }catch(e){
     el.innerHTML = `<div class="status">Bağlantı hatası. Tekrar dene.</div>`;
   }
@@ -489,7 +586,7 @@ function bookCardHTML(book){
     <div class="card-info">
       <div class="card-title">${escapeHTML(book.title)}</div>
       <div class="card-author">${escapeHTML(book.author)}</div>
-      <div class="card-meta">${book.year||''}${book.pages?' · '+book.pages+' sayfa':''}</div>
+      <div class="card-meta">${book.year||''}${book.pages?' · '+book.pages+' sayfa':''}${book.sourceSite?' · '+escapeHTML(book.sourceSite):''}</div>
       <div class="card-actions">
         <button class="btn btn-detail" data-action="detail" data-id="${book.id}">Detay</button>
         ${inLib
@@ -609,24 +706,29 @@ async function openDetail(bookId){
   content.innerHTML = `<div class="status"><div class="status-spinner"></div>Yükleniyor…</div>`;
   overlay.classList.add('open');
 
-  // Always fetch fresh full data from API
-  try{
-    const r = await fetch(`https://www.googleapis.com/books/v1/volumes/${bookId}?key=${API_KEY}`);
-    const d = await r.json();
-    if(d.volumeInfo){
-      const info = d.volumeInfo;
-      book = {
-        ...book,
-        pages: info.pageCount||'',
-        genre: (info.categories||[]).join(', ')||'',
-        description: info.description||'',
-        publisher: info.publisher||'',
-        isbn: (info.industryIdentifiers||[]).map(i=>i.identifier).join(', ')||'',
-        year: info.publishedDate ? info.publishedDate.slice(0,4) : book.year,
-        cover: info.imageLinks?((info.imageLinks.thumbnail||info.imageLinks.smallThumbnail||book.cover||'').replace('http://','https://')):book.cover,
-      };
-    }
-  }catch(e){}
+  const isExternal = book.id.startsWith('cse-');
+
+  // "cse-" ile başlayan kayıtlar Google Books'ta bulunamamış harici (mağaza) kayıtlardır,
+  // bunlar için Books API'ye sorgu atmıyoruz çünkü geçerli bir volume id'leri yok.
+  if(!isExternal){
+    try{
+      const r = await fetch(`https://www.googleapis.com/books/v1/volumes/${bookId}?key=${API_KEY}`);
+      const d = await r.json();
+      if(d.volumeInfo){
+        const info = d.volumeInfo;
+        book = {
+          ...book,
+          pages: info.pageCount||'',
+          genre: (info.categories||[]).join(', ')||'',
+          description: info.description||'',
+          publisher: info.publisher||'',
+          isbn: (info.industryIdentifiers||[]).map(i=>i.identifier).join(', ')||'',
+          year: info.publishedDate ? info.publishedDate.slice(0,4) : book.year,
+          cover: info.imageLinks?((info.imageLinks.thumbnail||info.imageLinks.smallThumbnail||book.cover||'').replace('http://','https://')):book.cover,
+        };
+      }
+    }catch(e){}
+  }
 
   const coverStyle = book.cover ? `background-image:url('${httpsify(book.cover)}')` : '';
   const inLib = isInLibrary(book.id);
@@ -671,6 +773,7 @@ async function openDetail(bookId){
         ? `<button class="btn btn-remove" data-action="remove" data-id="${book.id}">Kütüphaneden Çıkar</button>`
         : `<button class="btn btn-add" data-action="add" data-id="${book.id}">Kütüphaneye Ekle</button>`
       }
+      ${book.sourceLink ? `<a class="btn btn-detail" href="${book.sourceLink}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;">Sitede Gör</a>` : ''}
     </div>`;
 
   overlay.classList.add('open');
