@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Archive v1.0</title>
+    <title>ARCHIVE_ v1.0</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap');
 
@@ -14,50 +14,21 @@
             --border: rgba(255, 255, 255, 0.1);
         }
 
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* NAV */
+        nav { display: flex; gap: 20px; padding: 20px 40px; border-bottom: 1px solid var(--border); align-items: center; background: rgba(0,0,0,0.5); }
+        .brand { font-family: 'Space Mono', monospace; font-size: 1.5rem; color: var(--accent); margin-right: 40px; }
+        .tab-btn { background: none; border: none; color: #666; cursor: pointer; font-family: 'Space Mono', monospace; font-size: 0.8rem; text-transform: uppercase; }
+        .tab-btn.active { color: var(--accent); }
 
-        /* FUTURISTIK NAV */
-        nav {
-            display: flex;
-            gap: 20px;
-            padding: 20px 40px;
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
-            align-items: center;
-        }
-
-        .brand { font-family: 'Space Mono', monospace; font-size: 1.5rem; color: var(--accent); margin-right: 40px; letter-spacing: -1px; }
-
-        .tab-btn {
-            background: none; border: none; color: #666; cursor: pointer;
-            font-family: 'Space Mono', monospace; font-size: 0.8rem;
-            transition: all 0.3s ease; text-transform: uppercase;
-        }
-        .tab-btn.active { color: var(--accent); text-shadow: 0 0 10px var(--accent); }
-
-        /* VIEW CONTAINER */
-        .view { display: none; padding: 40px; height: calc(100vh - 100px); overflow-y: auto; }
-        .view.active { display: block; animation: fadeIn 0.5s ease; }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* INTERAKTIF KARTLAR */
-        .glass {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-        }
+        /* VIEW */
+        .view { display: none; padding: 40px; }
+        .view.active { display: block; }
+        
+        .glass { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; backdrop-filter: blur(10px); }
+        input { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: white; padding: 10px; border-radius: 6px; width: 100%; margin-bottom: 10px; }
+        button.action { background: var(--accent); border: none; padding: 10px 20px; cursor: pointer; color: black; font-weight: bold; border-radius: 6px; }
     </style>
 </head>
 <body>
@@ -70,18 +41,30 @@
 </nav>
 
 <div id="listelerim" class="view active">
-    <div class="glass">
-        <h2>SİSTEM BAŞLATILDI</h2>
-        <p>Klasör hiyerarşisi yükleniyor...</p>
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <button class="action" onclick="createFolder()">+ KLASÖR</button>
+        <button class="action" onclick="openBookModal()">+ KİTAP</button>
+    </div>
+    <div id="folderContainer" class="glass">
+        <p style="color:#666; font-family:monospace;">Sistem boş. Yeni öğeler oluşturun.</p>
     </div>
 </div>
 
-<div id="kutuphanem" class="view">
-    <div class="glass"><h2>KÜTÜPHANE AYNASI</h2></div>
-</div>
+<div id="kutuphanem" class="view"><div class="glass"><h2>KÜTÜPHANE AYNASI</h2></div></div>
+<div id="verilerim" class="view"><div class="glass"><h2>DATA ANALİZ</h2></div></div>
 
-<div id="verilerim" class="view">
-    <div class="glass"><h2>DATA ANALİZ</h2></div>
+<!-- Modal -->
+<div id="bookModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); justify-content:center; align-items:center;">
+    <div class="glass" style="width:400px;">
+        <h3>YENİ KİTAP GİRİŞİ</h3>
+        <input type="text" id="bTitle" placeholder="Kitap Adı">
+        <input type="text" id="bAuthor" placeholder="Yazar">
+        <input type="text" id="bPublisher" placeholder="Yayınevi">
+        <div style="display:flex; gap:10px;">
+            <button class="action" onclick="saveBook()">KAYDET</button>
+            <button class="action" style="background:#444;" onclick="closeModal()">İPTAL</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -91,6 +74,10 @@
         document.getElementById(tabId).classList.add('active');
         event.currentTarget.classList.add('active');
     }
+    function openBookModal() { document.getElementById('bookModal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('bookModal').style.display = 'none'; }
+    function saveBook() { alert("Kitap verisi sisteme işlendi (backend kurulumu bekleniyor)."); closeModal(); }
+    function createFolder() { alert("Klasör oluşturma modülü aktif."); }
 </script>
 </body>
 </html>
