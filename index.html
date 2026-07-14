@@ -8,17 +8,6 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- React & ReactDOM (UMD - BEYAZ EKRAN ÇÖZÜMÜ) -->
-    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
-
-    <!-- Lucide Icons (UMD) -->
-    <script src="https://unpkg.com/lucide-react@0.292.0/dist/umd/lucide-react.min.js"></script>
-
-    <!-- Babel & Barcode Scanner -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-
     <style>
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
@@ -33,7 +22,7 @@
 <body class="bg-zinc-100 flex justify-center text-zinc-900">
     <div id="root" class="w-full h-full max-w-md bg-white shadow-2xl relative overflow-hidden flex flex-col h-screen"></div>
 
-    <script type="text/babel">
+    <script type="text/plain" id="app-source">
         const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
         const { createRoot } = ReactDOM;
         const {
@@ -1053,6 +1042,94 @@
         const rootElement = document.getElementById('root');
         const root = createRoot(rootElement);
         root.render(<App />);
+    </script>
+
+    <!--
+      SIRALI SCRIPT YÜKLEYİCİ (BEYAZ EKRAN ÇÖZÜMÜ)
+
+      Yukarıdaki uygulama kodu type="text/plain" olarak işaretlendi, bu yüzden
+      tarayıcı onu otomatik ÇALIŞTIRMAZ, sadece metin olarak sayfada tutar.
+      Bunun sebebi: normal <script src="..."> etiketleri teorik olarak sırayla
+      yüklenip çalışsa da, bazı ağlarda/CDN yansımalarında veya kurumsal
+      proxy'lerde CORS başlıkları eksik gelebiliyor ve bir script SESSİZCE
+      çalışmadan geçiliyor. Sonrasında ona bağımlı olan bir sonraki script
+      (örn. lucide-react, React'a ihtiyaç duyar) çöküyor ve React ağacı hiç
+      kurulmadığı için ekran bembeyaz kalıyor — konsolda hata olsa bile
+      kullanıcı bunu görmüyor.
+
+      Bu yükleyici her kütüphaneyi TEK TEK, bir öncekinin başarıyla yüklendiğini
+      garanti ettikten sonra yükler. Herhangi biri başarısız olursa hem konsola
+      hem de doğrudan #root içine kullanıcının göreceği açık bir hata mesajı yazar.
+    -->
+    <script>
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const existing = document.querySelector(`script[data-src="${src}"]`);
+                if (existing) { resolve(); return; }
+                const s = document.createElement('script');
+                s.src = src;
+                s.dataset.src = src;
+                s.onload = () => resolve();
+                s.onerror = () => reject(new Error(src));
+                document.head.appendChild(s);
+            });
+        }
+
+        function showFatalError(failedUrl) {
+            const root = document.getElementById('root');
+            root.innerHTML = `
+                <div style="height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; font-family:sans-serif; gap:10px;">
+                    <div style="font-size:32px;">⚠️</div>
+                    <h2 style="margin:0; color:#18181b; font-size:16px;">Uygulama yüklenemedi</h2>
+                    <p style="margin:0; color:#71717a; font-size:13px; max-width:320px;">
+                        Gerekli bir kütüphane yüklenemedi:<br/>
+                        <code style="font-size:11px; word-break:break-all;">${failedUrl}</code>
+                    </p>
+                    <p style="margin:0; color:#a1a1aa; font-size:12px; max-width:320px;">
+                        İnternet bağlantınızı, reklam engelleyicinizi (adblock) veya
+                        ağ/CSP kısıtlamalarını kontrol edip sayfayı yenileyin.
+                    </p>
+                    <button onclick="window.location.reload()" style="margin-top:8px; padding:8px 16px; background:#18181b; color:white; border:none; border-radius:10px; font-size:13px; cursor:pointer;">
+                        Sayfayı Yenile
+                    </button>
+                </div>`;
+        }
+
+        async function bootstrap() {
+            try {
+                // Her kütüphane bir öncekinin TAM olarak yüklenip global
+                // değişkenini (window.React, window.ReactDOM, ...) oluşturduğundan
+                // emin olunduktan sonra yükleniyor.
+                await loadScript('https://unpkg.com/react@18.2.0/umd/react.production.min.js');
+                if (!window.React) throw new Error('React yüklendi ama window.React oluşmadı');
+
+                await loadScript('https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js');
+                if (!window.ReactDOM) throw new Error('ReactDOM yüklendi ama window.ReactDOM oluşmadı');
+
+                await loadScript('https://unpkg.com/lucide-react@0.292.0/dist/umd/lucide-react.min.js');
+                if (!window.lucideReact) throw new Error('lucide-react yüklendi ama window.lucideReact oluşmadı');
+
+                await loadScript('https://unpkg.com/html5-qrcode');
+                if (!window.Html5Qrcode) throw new Error('html5-qrcode yüklendi ama window.Html5Qrcode oluşmadı');
+
+                await loadScript('https://unpkg.com/@babel/standalone/babel.min.js');
+                if (!window.Babel) throw new Error('Babel yüklendi ama window.Babel oluşmadı');
+
+                // Tüm bağımlılıklar hazır: şimdi uygulama kaynağını al, JSX'i
+                // derle ve gerçek bir <script> olarak sayfaya ekleyip çalıştır.
+                const source = document.getElementById('app-source').textContent;
+                const compiled = window.Babel.transform(source, { presets: ['react'] }).code;
+
+                const runner = document.createElement('script');
+                runner.textContent = compiled;
+                document.body.appendChild(runner);
+            } catch (err) {
+                console.error('Başlatma hatası:', err);
+                showFatalError(err.message);
+            }
+        }
+
+        bootstrap();
     </script>
 </body>
 </html>
