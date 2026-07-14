@@ -19,6 +19,9 @@
     <!-- Babel (Tarayıcıda JSX derlemek için CDN) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- HTML5 QRCode (Kamera ile barkod taramak için) -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
     <style>
         /* iOS ve mobil cihazlar için alt boşluk güvenliği */
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
@@ -27,15 +30,17 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #e4e4e7; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #d4d4d8; }
+        /* Kamera okuyucu penceresi için stil */
+        #reader { border-radius: 1rem; overflow: hidden; border: 2px solid #e4e4e7; background: #000; }
+        #reader video { object-fit: cover; }
     </style>
 </head>
 <body class="bg-zinc-100 text-zinc-900 antialiased selection:bg-zinc-200">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, createContext, useContext } = React;
+        const { useState, useEffect, useMemo, createContext, useContext, useRef } = React;
 
-        // --- İKON BİLEŞENLERİ (Bağımlılık olmaması için SVG olarak eklendi) ---
         const Icon = ({ children, size = 24, className = "", ...props }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>
         );
@@ -55,14 +60,12 @@
         const FolderPlusIcon = (p) => <Icon {...p}><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></Icon>;
         const FileTextIcon = (p) => <Icon {...p}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></Icon>;
         const MoveRightIcon = (p) => <Icon {...p}><path d="M18 8L22 12L18 16"/><path d="M2 12H22"/></Icon>;
+        const ScanIcon = (p) => <Icon {...p}><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></Icon>;
 
-        // --- SABİTLER ---
-        const API_KEY = 'AIzaSyAZhPfNsWRQYl48Xlph2jhBfPJK12mJjJ8';
         const STORAGE_KEY = 'archive_app_data';
         const generateId = () => Math.random().toString(36).substring(2, 15);
         const initialState = { books: [], folders: [] };
 
-        // --- CONTEXT & STATE (Veri Yönetimi) ---
         const ArchiveContext = createContext();
         const useArchive = () => useContext(ArchiveContext);
 
@@ -75,21 +78,14 @@
             });
             const [toast, setToast] = useState(null);
 
-            useEffect(() => {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            }, [data]);
+            useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }, [data]);
 
-            const showToast = (msg) => {
-                setToast(msg);
-                setTimeout(() => setToast(null), 3000);
-            };
+            const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
-            // Klasör İşlemleri
             const addFolder = (name, parentId = null) => {
                 const siblings = data.folders.filter(f => f.parentId === parentId);
                 const order = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
-                const newFolder = { id: generateId(), name, parentId, order };
-                setData(prev => ({ ...prev, folders: [...prev.folders, newFolder] }));
+                setData(prev => ({ ...prev, folders: [...prev.folders, { id: generateId(), name, parentId, order }] }));
             };
 
             const reorderFolder = (id, direction) => {
@@ -98,7 +94,6 @@
                     if (!folder) return prev;
                     const siblings = prev.folders.filter(f => f.parentId === folder.parentId).sort((a, b) => a.order - b.order);
                     const index = siblings.findIndex(f => f.id === id);
-                    
                     if (direction === 'up' && index > 0) {
                         const prevSibling = siblings[index - 1];
                         return { ...prev, folders: prev.folders.map(f => f.id === id ? { ...f, order: prevSibling.order } : f.id === prevSibling.id ? { ...f, order: folder.order } : f) };
@@ -111,7 +106,6 @@
                 });
             };
 
-            // Kitap İşlemleri
             const addBook = (bookData, folderId = null) => {
                 if (bookData.isbn && data.books.some(b => b.isbn === bookData.isbn)) {
                     showToast('Bu kitap zaten kütüphanenizde mevcut!');
@@ -119,23 +113,18 @@
                 }
                 const siblings = data.books.filter(b => b.folderId === folderId);
                 const order = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
-                const newBook = { ...bookData, id: generateId(), folderId, order, inLibrary: false, isRead: false };
-                setData(prev => ({ ...prev, books: [...prev.books, newBook] }));
-                showToast('Kitap başarıyla eklendi.');
+                setData(prev => ({ ...prev, books: [...prev.books, { ...bookData, id: generateId(), folderId, order, inLibrary: false, isRead: false }] }));
+                showToast('Kitap eklendi.');
                 return true;
             };
 
-            const updateBook = (id, updates) => {
-                setData(prev => ({ ...prev, books: prev.books.map(b => b.id === id ? { ...b, ...updates } : b) }));
-            };
-
+            const updateBook = (id, updates) => setData(prev => ({ ...prev, books: prev.books.map(b => b.id === id ? { ...b, ...updates } : b) }));
             const reorderBook = (id, direction) => {
                 setData(prev => {
                     const book = prev.books.find(b => b.id === id);
                     if (!book) return prev;
                     const siblings = prev.books.filter(b => b.folderId === book.folderId).sort((a, b) => a.order - b.order);
                     const index = siblings.findIndex(b => b.id === id);
-                    
                     if (direction === 'up' && index > 0) {
                         const prevSibling = siblings[index - 1];
                         return { ...prev, books: prev.books.map(b => b.id === id ? { ...b, order: prevSibling.order } : b.id === prevSibling.id ? { ...b, order: book.order } : b) };
@@ -151,60 +140,140 @@
             return (
                 <ArchiveContext.Provider value={{ books: data.books, folders: data.folders, addFolder, reorderFolder, addBook, updateBook, reorderBook, toast }}>
                     {children}
-                    {toast && (
-                        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-zinc-900 text-white px-5 py-2.5 rounded-full shadow-2xl z-50 text-sm font-medium transition-all duration-300">
-                            {toast}
-                        </div>
-                    )}
+                    {toast && <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zinc-900 text-white px-5 py-2.5 rounded-full shadow-2xl z-50 text-sm font-medium">{toast}</div>}
                 </ArchiveContext.Provider>
             );
         };
 
-        // --- BİLEŞENLER ---
         const SearchAddModal = ({ isOpen, onClose, folderId }) => {
             const { addBook } = useArchive();
             const [query, setQuery] = useState('');
             const [publisherFilter, setPublisherFilter] = useState('');
             const [results, setResults] = useState([]);
             const [loading, setLoading] = useState(false);
+            const [isScanning, setIsScanning] = useState(false);
+
+            useEffect(() => {
+                let html5QrcodeScanner;
+                if (isScanning && isOpen) {
+                    html5QrcodeScanner = new Html5Qrcode("reader");
+                    html5QrcodeScanner.start(
+                        { facingMode: "environment" }, // Arka kamera
+                        { fps: 10, qrbox: { width: 250, height: 150 } },
+                        (decodedText) => {
+                            // Barkod başarıyla okundu
+                            html5QrcodeScanner.stop().then(() => {
+                                setIsScanning(false);
+                                setQuery(decodedText);
+                                performSearch(decodedText); // Okunan veriyle hemen aramayı başlat
+                            }).catch(console.error);
+                        },
+                        (errorMessage) => { /* Hatalar (kamera okuyamıyor anları vs) yoksay */ }
+                    ).catch(err => {
+                        console.error(err);
+                        alert("Kameraya erişilemedi veya izin verilmedi.");
+                        setIsScanning(false);
+                    });
+                }
+                return () => {
+                    if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+                        html5QrcodeScanner.stop().catch(console.error);
+                    }
+                };
+            }, [isScanning, isOpen]);
 
             if (!isOpen) return null;
 
-            const searchBooks = async () => {
-                if (!query.trim()) return;
+            const performSearch = async (overrideQuery = null) => {
+                const searchQuery = (overrideQuery || query).trim();
+                if (!searchQuery) return;
+                
                 setLoading(true);
+                setResults([]);
+
+                let foundBooks = [];
+                // Sadece rakam ve tirelerden oluşan ve yeterli uzunlukta bir girdi mi? (ISBN kontrolü)
+                const cleanQuery = searchQuery.replace(/[- ]/g, '');
+                const isIsbn = /^\d+$/.test(cleanQuery) && cleanQuery.length >= 10;
+
                 try {
-                    const isIsbn = /^\d+$/.test(query.replace(/[- ]/g, ''));
-                    // YENİ GÜNCELLEME: URL uyumlu encode işlemi yapıyoruz ve aramayı intitle yerine genel q formatında arıyoruz.
-                    const q = isIsbn ? `isbn:${query.replace(/[- ]/g, '')}` : encodeURIComponent(query.trim());
-                    
-                    let res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=10&key=${API_KEY}`);
-                    
-                    // EĞER API KOTAYA TAKILIRSA VEYA HATA VERİRSE ANAHTARSIZ TEKRAR DENE
-                    if (!res.ok) {
-                        res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=10`);
+                    // 1. AŞAMA: Open Library (En Güvenilir Kaynak)
+                    if (isIsbn) {
+                        const olRes = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${cleanQuery}&format=json&jscmd=data`);
+                        const olData = await olRes.json();
+                        const olKey = `ISBN:${cleanQuery}`;
+                        
+                        if (olData[olKey]) {
+                            const book = olData[olKey];
+                            foundBooks.push({
+                                isbn: cleanQuery,
+                                title: book.title || 'Başlık Yok',
+                                author: book.authors ? book.authors.map(a => a.name).join(', ') : 'Yazar Belirtilmemiş',
+                                publisher: book.publishers ? book.publishers.map(p => p.name).join(', ') : 'Yayınevi Belirtilmemiş',
+                                pageCount: book.number_of_pages || 0,
+                                year: book.publish_date || '',
+                                price: 0
+                            });
+                        }
+                    } else {
+                        // Başlık araması
+                        const olRes = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(searchQuery)}&limit=5`);
+                        const olData = await olRes.json();
+                        
+                        if (olData.docs && olData.docs.length > 0) {
+                            foundBooks = olData.docs.map(doc => ({
+                                isbn: doc.isbn ? doc.isbn[0] : '',
+                                title: doc.title || 'Başlık Yok',
+                                author: doc.author_name ? doc.author_name.join(', ') : 'Yazar Belirtilmemiş',
+                                publisher: doc.publisher ? doc.publisher[0] : 'Yayınevi Belirtilmemiş',
+                                pageCount: doc.number_of_pages_median || 0,
+                                year: doc.first_publish_year || '',
+                                price: 0
+                            }));
+                        }
                     }
-                    
-                    const data = await res.json();
-                    
-                    if (data.items) {
-                        let parsed = data.items.map(item => {
-                            const vol = item.volumeInfo;
-                            const isbnObj = vol.industryIdentifiers?.find(i => i.type === 'ISBN_13' || i.type === 'ISBN_10');
-                            return {
-                                isbn: isbnObj ? isbnObj.identifier : '',
-                                title: vol.title || 'Bilinmeyen Kitap',
-                                author: vol.authors ? vol.authors.join(', ') : 'Bilinmeyen Yazar',
-                                publisher: vol.publisher || 'Bilinmeyen Yayınevi',
-                                pageCount: vol.pageCount || 0,
-                                year: vol.publishedDate ? vol.publishedDate.substring(0, 4) : '',
-                                price: ''
-                            };
-                        });
-                        if (publisherFilter) parsed = parsed.filter(b => b.publisher.toLowerCase().includes(publisherFilter.toLowerCase()));
-                        setResults(parsed);
-                    } else { setResults([]); }
-                } catch (error) { console.error(error); }
+
+                    // 2. AŞAMA: Google Books Fallback (Open Library Bulamazsa veya Yayınevi Eksikse)
+                    if (foundBooks.length === 0 || (isIsbn && foundBooks[0].publisher === 'Yayınevi Belirtilmemiş')) {
+                        const gbQuery = isIsbn ? `isbn:${cleanQuery}` : `intitle:${encodeURIComponent(searchQuery)}`;
+                        const gbRes = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${gbQuery}&maxResults=5`);
+                        const gbData = await gbRes.json();
+
+                        if (gbData.items && gbData.items.length > 0) {
+                            const gbBooks = gbData.items.map(item => {
+                                const vol = item.volumeInfo;
+                                const isbnObj = vol.industryIdentifiers?.find(i => i.type.includes('ISBN'));
+                                return {
+                                    isbn: isbnObj ? isbnObj.identifier : (isIsbn ? cleanQuery : ''),
+                                    title: vol.title || 'Başlık Yok',
+                                    author: vol.authors ? vol.authors.join(', ') : 'Yazar Belirtilmemiş',
+                                    publisher: vol.publisher || 'Yayınevi Belirtilmemiş',
+                                    pageCount: vol.pageCount || 0,
+                                    year: vol.publishedDate ? vol.publishedDate.substring(0, 4) : '',
+                                    price: 0
+                                };
+                            });
+
+                            if (foundBooks.length === 0) {
+                                foundBooks = gbBooks;
+                            } else if (isIsbn && gbBooks[0].publisher !== 'Yayınevi Belirtilmemiş') {
+                                // Google'da yayınevi varsa Open Library'nin eksik verisini yama yap
+                                foundBooks[0].publisher = gbBooks[0].publisher;
+                                if (!foundBooks[0].pageCount) foundBooks[0].pageCount = gbBooks[0].pageCount;
+                            }
+                        }
+                    }
+
+                    // Filtreleme uygulanmışsa uygula
+                    if (publisherFilter) {
+                        foundBooks = foundBooks.filter(b => b.publisher.toLowerCase().includes(publisherFilter.toLowerCase()));
+                    }
+
+                } catch (error) { 
+                    console.error("API Hatası:", error); 
+                }
+
+                setResults(foundBooks);
                 setLoading(false);
             };
 
@@ -215,32 +284,53 @@
                             <h2 className="text-lg font-bold text-zinc-800">Yeni Kitap Ekle</h2>
                             <button onClick={onClose} className="p-1.5 bg-zinc-200 hover:bg-zinc-300 rounded-full transition-colors"><XIcon size={18} /></button>
                         </div>
+                        
                         <div className="p-4 flex flex-col gap-3">
-                            <div className="flex gap-2">
-                                <div className="relative flex-1">
-                                    <SearchIcon className="absolute left-3 top-3 text-zinc-400" size={18} />
-                                    <input type="text" placeholder="Kitap Adı veya ISBN..." className="w-full pl-10 pr-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-800 bg-zinc-50" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchBooks()} />
+                            {isScanning && (
+                                <div className="mb-2">
+                                    <div id="reader" className="w-full bg-black h-48 rounded-xl overflow-hidden shadow-inner"></div>
+                                    <button onClick={() => setIsScanning(false)} className="mt-2 w-full py-2 bg-red-100 text-red-700 rounded-lg font-medium text-sm">Kamerayı Kapat</button>
                                 </div>
-                                <button onClick={searchBooks} className="px-5 py-2.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 font-medium transition-colors">Ara</button>
+                            )}
+
+                            <div className="flex gap-2">
+                                <div className="relative flex-1 flex items-center bg-zinc-50 border rounded-xl focus-within:ring-2 focus-within:ring-zinc-800 focus-within:border-zinc-800 transition-all">
+                                    <SearchIcon className="absolute left-3 text-zinc-400" size={18} />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Kitap Adı veya ISBN..." 
+                                        className="w-full pl-10 pr-10 py-2.5 bg-transparent focus:outline-none" 
+                                        value={query} 
+                                        onChange={e => setQuery(e.target.value)} 
+                                        onKeyDown={e => e.key === 'Enter' && performSearch()} 
+                                    />
+                                    <button onClick={() => setIsScanning(!isScanning)} className={`absolute right-2 p-1.5 rounded-lg transition-colors ${isScanning ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-zinc-800 hover:bg-zinc-200'}`} title="Barkod Tarat">
+                                        <ScanIcon size={18} />
+                                    </button>
+                                </div>
+                                <button disabled={loading} onClick={() => performSearch()} className="px-5 py-2.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 font-medium transition-colors disabled:opacity-50">
+                                    {loading ? '...' : 'Ara'}
+                                </button>
                             </div>
                             <input type="text" placeholder="Yayınevine göre filtrele (Opsiyonel)" className="w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-800 bg-zinc-50 text-sm" value={publisherFilter} onChange={e => setPublisherFilter(e.target.value)} />
                         </div>
-                        <div className="flex-1 overflow-y-auto p-4 bg-zinc-50/50">
-                            {loading ? <div className="text-center py-8 text-zinc-500 font-medium animate-pulse">Aranıyor...</div> : 
+
+                        <div className="flex-1 overflow-y-auto p-4 bg-zinc-50/50 border-t">
+                            {loading ? <div className="text-center py-8 text-zinc-500 font-medium animate-pulse">Kütüphaneler Taranıyor...</div> : 
                             results.length > 0 ? (
                                 <div className="flex flex-col gap-3">
                                     {results.map((book, idx) => (
                                         <div key={idx} className="bg-white p-4 rounded-xl border flex justify-between items-center shadow-sm">
-                                            <div>
-                                                <h3 className="font-semibold text-zinc-800">{book.title}</h3>
-                                                <p className="text-sm text-zinc-500">{book.author} • {book.publisher}</p>
-                                                <p className="text-xs text-zinc-400 mt-1">ISBN: {book.isbn || 'Yok'}</p>
+                                            <div className="pr-3">
+                                                <h3 className="font-semibold text-zinc-800 line-clamp-2">{book.title}</h3>
+                                                <p className="text-sm text-zinc-500 line-clamp-1">{book.author} • {book.publisher}</p>
+                                                <p className="text-xs text-zinc-400 mt-1">Sfa: {book.pageCount} {book.isbn ? `| ISBN: ${book.isbn}` : ''}</p>
                                             </div>
-                                            <button onClick={() => { addBook(book, folderId); onClose(); }} className="p-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 rounded-xl transition-colors"><PlusIcon size={20} /></button>
+                                            <button onClick={() => { addBook(book, folderId); onClose(); }} className="flex-shrink-0 p-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 rounded-xl transition-colors"><PlusIcon size={20} /></button>
                                         </div>
                                     ))}
                                 </div>
-                            ) : <div className="text-center py-8 text-zinc-400 text-sm">Arama yaparak kitap ekleyebilirsiniz.</div>}
+                            ) : <div className="text-center py-8 text-zinc-400 text-sm">Ad, yazar veya ISBN arayabilir,<br/>kamera ile barkod okutabilirsiniz.</div>}
                         </div>
                     </div>
                 </div>
@@ -291,7 +381,7 @@
                                 <div className="pt-4 border-t mt-4">
                                     <button onClick={() => setShowMove(!showMove)} className="flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900 font-medium"><MoveRightIcon size={16} /> Klasörü Değiştir</button>
                                     {showMove && (
-                                        <div className="mt-2 p-2 border rounded-xl bg-zinc-50 max-h-40 overflow-y-auto">
+                                        <div className="mt-2 p-2 border rounded-xl bg-zinc-50 max-h-40 overflow-y-auto shadow-inner">
                                             <div onClick={() => { updateBook(book.id, { folderId: null }); setShowMove(false); }} className={`p-2 text-sm rounded-lg cursor-pointer ${book.folderId === null ? 'bg-zinc-200 font-semibold' : 'hover:bg-zinc-100'}`}>/ Ana Dizin</div>
                                             {folders.map(f => <div key={f.id} onClick={() => { updateBook(book.id, { folderId: f.id }); setShowMove(false); }} className={`p-2 text-sm rounded-lg cursor-pointer ${book.folderId === f.id ? 'bg-zinc-200 font-semibold' : 'hover:bg-zinc-100'}`}>{f.name}</div>)}
                                         </div>
