@@ -1,988 +1,565 @@
-import React, { useState, useEffect, useMemo, createContext, useContext } from 'react';
-import { 
-  Library, List, BarChart3, Plus, Search, ChevronDown, ChevronRight, 
-  ArrowUp, ArrowDown, BookOpen, Edit2, Check, X, FolderPlus, FileText, MoveRight
-} from 'lucide-react';
-
-
-// --- UTILS & CONSTANTS ---
-const API_KEY = 'AIzaSyAZhPfNsWRQYl48Xlph2jhBfPJK12mJjJ8';
-const STORAGE_KEY = 'archive_app_data';
-
-const generateId = () => Math.random().toString(36).substring(2, 15);
-
-// Initial empty state
-const initialState = {
-  books: [],
-  folders: [],
-};
-
-// --- CONTEXT & STATE MANAGEMENT ---
-const ArchiveContext = createContext();
-
-const useArchive = () => useContext(ArchiveContext);
-
-const ArchiveProvider = ({ children }) => {
-  const [data, setData] = useState(() => {
-    try {
-      const localData = localStorage.getItem(STORAGE_KEY);
-      return localData ? JSON.parse(localData) : initialState;
-    } catch (e) {
-      return initialState;
-    }
-  });
-
-  const [toast, setToast] = useState(null);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }, [data]);
-
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  
-  // FOLDERS
-  const addFolder = (name, parentId = null) => {
-    const siblings = data.folders.filter(f => f.parentId === parentId);
-    const order = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Archive - Kütüphane</title>
     
-    const newFolder = { id: generateId(), name, parentId, order };
-    setData(prev => ({ ...prev, folders: [...prev.folders, newFolder] }));
-  };
+    <!-- PWA Desteği için (İsteğe bağlı) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#18181b">
 
-  const reorderFolder = (id, direction) => {
-    setData(prev => {
-      const folder = prev.folders.find(f => f.id === id);
-      if (!folder) return prev;
-      
-      const siblings = prev.folders.filter(f => f.parentId === folder.parentId).sort((a, b) => a.order - b.order);
-      const index = siblings.findIndex(f => f.id === id);
-      
-      if (direction === 'up' && index > 0) {
-        const prevSibling = siblings[index - 1];
-        const newFolders = prev.folders.map(f => {
-          if (f.id === id) return { ...f, order: prevSibling.order };
-          if (f.id === prevSibling.id) return { ...f, order: folder.order };
-          return f;
-        });
-        return { ...prev, folders: newFolders };
-      }
-      if (direction === 'down' && index < siblings.length - 1) {
-        const nextSibling = siblings[index + 1];
-        const newFolders = prev.folders.map(f => {
-          if (f.id === id) return { ...f, order: nextSibling.order };
-          if (f.id === nextSibling.id) return { ...f, order: folder.order };
-          return f;
-        });
-        return { ...prev, folders: newFolders };
-      }
-      return prev;
-    });
-  };
-
-  // BOOKS
-  const addBook = (bookData, folderId = null) => {
-    // Check duplication by ISBN
-    if (bookData.isbn && data.books.some(b => b.isbn === bookData.isbn)) {
-      showToast('Bu kitap zaten kütüphanenizde mevcut!');
-      return false;
-    }
-
-    const siblings = data.books.filter(b => b.folderId === folderId);
-    const order = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
-
-    const newBook = {
-      ...bookData,
-      id: generateId(),
-      folderId,
-      order,
-      inLibrary: false,
-      isRead: false,
-    };
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    setData(prev => ({ ...prev, books: [...prev.books, newBook] }));
-    showToast('Kitap başarıyla eklendi.');
-    return true;
-  };
+    <!-- React & ReactDOM (CDN) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel (Tarayıcıda JSX derlemek için CDN) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  const updateBook = (id, updates) => {
-    setData(prev => ({
-      ...prev,
-      books: prev.books.map(b => b.id === id ? { ...b, ...updates } : b)
-    }));
-  };
+    <style>
+        /* iOS ve mobil cihazlar için alt boşluk güvenliği */
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        /* Özel scrollbar tasarımı */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e4e4e7; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #d4d4d8; }
+    </style>
+</head>
+<body class="bg-zinc-100 text-zinc-900 antialiased selection:bg-zinc-200">
+    <div id="root"></div>
 
-  const moveBook = (bookId, newFolderId) => {
-    setData(prev => {
-      const siblings = prev.books.filter(b => b.folderId === newFolderId);
-      const newOrder = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
-      return {
-        ...prev,
-        books: prev.books.map(b => b.id === bookId ? { ...b, folderId: newFolderId, order: newOrder } : b)
-      };
-    });
-    showToast('Kitap taşındı.');
-  };
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, createContext, useContext } = React;
 
-  const reorderBook = (id, direction) => {
-    setData(prev => {
-      const book = prev.books.find(b => b.id === id);
-      if (!book) return prev;
-      
-      const siblings = prev.books.filter(b => b.folderId === book.folderId).sort((a, b) => a.order - b.order);
-      const index = siblings.findIndex(b => b.id === id);
-      
-      if (direction === 'up' && index > 0) {
-        const prevSibling = siblings[index - 1];
-        const newBooks = prev.books.map(b => {
-          if (b.id === id) return { ...b, order: prevSibling.order };
-          if (b.id === prevSibling.id) return { ...b, order: book.order };
-          return b;
-        });
-        return { ...prev, books: newBooks };
-      }
-      if (direction === 'down' && index < siblings.length - 1) {
-        const nextSibling = siblings[index + 1];
-        const newBooks = prev.books.map(b => {
-          if (b.id === id) return { ...b, order: nextSibling.order };
-          if (b.id === nextSibling.id) return { ...b, order: book.order };
-          return b;
-        });
-        return { ...prev, books: newBooks };
-      }
-      return prev;
-    });
-  };
+        // --- İKON BİLEŞENLERİ (Bağımlılık olmaması için SVG olarak eklendi) ---
+        const Icon = ({ children, size = 24, className = "", ...props }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>
+        );
+        const LibraryIcon = (p) => <Icon {...p}><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></Icon>;
+        const ListIcon = (p) => <Icon {...p}><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></Icon>;
+        const BarChartIcon = (p) => <Icon {...p}><path d="M3 3v18h18"/><rect width="4" height="7" x="7" y="10" rx="1"/><rect width="4" height="12" x="15" y="5" rx="1"/></Icon>;
+        const PlusIcon = (p) => <Icon {...p}><path d="M5 12h14"/><path d="M12 5v14"/></Icon>;
+        const SearchIcon = (p) => <Icon {...p}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></Icon>;
+        const ChevronDownIcon = (p) => <Icon {...p}><path d="m6 9 6 6 6-6"/></Icon>;
+        const ChevronRightIcon = (p) => <Icon {...p}><path d="m9 18 6-6-6-6"/></Icon>;
+        const ArrowUpIcon = (p) => <Icon {...p}><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></Icon>;
+        const ArrowDownIcon = (p) => <Icon {...p}><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></Icon>;
+        const BookOpenIcon = (p) => <Icon {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></Icon>;
+        const EditIcon = (p) => <Icon {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></Icon>;
+        const CheckIcon = (p) => <Icon {...p}><path d="M20 6 9 17l-5-5"/></Icon>;
+        const XIcon = (p) => <Icon {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
+        const FolderPlusIcon = (p) => <Icon {...p}><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></Icon>;
+        const FileTextIcon = (p) => <Icon {...p}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></Icon>;
+        const MoveRightIcon = (p) => <Icon {...p}><path d="M18 8L22 12L18 16"/><path d="M2 12H22"/></Icon>;
 
-  return (
-    <ArchiveContext.Provider value={{
-      books: data.books,
-      folders: data.folders,
-      addFolder,
-      reorderFolder,
-      addBook,
-      updateBook,
-      moveBook,
-      reorderBook,
-      toast
-    }}>
-      {children}
-      
-      {/* Toast Notification */}
-      {toast && (
-        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-zinc-900 text-white px-4 py-2 rounded-full shadow-lg z-50 text-sm font-medium animate-in fade-in slide-in-from-bottom-5">
-          {toast}
-        </div>
-      )}
-    </ArchiveContext.Provider>
-  );
-};
+        // --- SABİTLER ---
+        const API_KEY = 'AIzaSyAZhPfNsWRQYl48Xlph2jhBfPJK12mJjJ8';
+        const STORAGE_KEY = 'archive_app_data';
+        const generateId = () => Math.random().toString(36).substring(2, 15);
+        const initialState = { books: [], folders: [] };
 
+        // --- CONTEXT & STATE (Veri Yönetimi) ---
+        const ArchiveContext = createContext();
+        const useArchive = () => useContext(ArchiveContext);
 
-const SearchAddModal = ({ isOpen, onClose, folderId }) => {
-  const { addBook } = useArchive();
-  const [query, setQuery] = useState('');
-  const [publisherFilter, setPublisherFilter] = useState('');
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+        const ArchiveProvider = ({ children }) => {
+            const [data, setData] = useState(() => {
+                try {
+                    const localData = localStorage.getItem(STORAGE_KEY);
+                    return localData ? JSON.parse(localData) : initialState;
+                } catch (e) { return initialState; }
+            });
+            const [toast, setToast] = useState(null);
 
-  if (!isOpen) return null;
+            useEffect(() => {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            }, [data]);
 
-  const searchBooks = async () => {
-    if (!query.trim()) return;
-    setLoading(true);
-    try {
-      // Determine if query is mostly numbers (ISBN)
-      const isIsbn = /^\d+$/.test(query.replace(/[- ]/g, ''));
-      const q = isIsbn ? `isbn:${query.replace(/[- ]/g, '')}` : `intitle:${query}`;
-      
-      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=10&key=${API_KEY}`);
-      const data = await res.json();
-      
-      if (data.items) {
-        let parsed = data.items.map(item => {
-          const vol = item.volumeInfo;
-          const isbnObj = vol.industryIdentifiers?.find(i => i.type === 'ISBN_13' || i.type === 'ISBN_10');
-          return {
-            isbn: isbnObj ? isbnObj.identifier : '',
-            title: vol.title || 'Bilinmeyen Kitap',
-            author: vol.authors ? vol.authors.join(', ') : 'Bilinmeyen Yazar',
-            publisher: vol.publisher || 'Bilinmeyen Yayınevi',
-            pageCount: vol.pageCount || 0,
-            year: vol.publishedDate ? vol.publishedDate.substring(0, 4) : '',
-            price: '' // Explicitly empty as requested
-          };
-        });
+            const showToast = (msg) => {
+                setToast(msg);
+                setTimeout(() => setToast(null), 3000);
+            };
 
-        if (publisherFilter) {
-          parsed = parsed.filter(b => b.publisher.toLowerCase().includes(publisherFilter.toLowerCase()));
-        }
+            // Klasör İşlemleri
+            const addFolder = (name, parentId = null) => {
+                const siblings = data.folders.filter(f => f.parentId === parentId);
+                const order = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
+                const newFolder = { id: generateId(), name, parentId, order };
+                setData(prev => ({ ...prev, folders: [...prev.folders, newFolder] }));
+            };
 
-        setResults(parsed);
-      } else {
-        setResults([]);
-      }
-    } catch (error) {
-      console.error("API Error:", error);
-    }
-    setLoading(false);
-  };
+            const reorderFolder = (id, direction) => {
+                setData(prev => {
+                    const folder = prev.folders.find(f => f.id === id);
+                    if (!folder) return prev;
+                    const siblings = prev.folders.filter(f => f.parentId === folder.parentId).sort((a, b) => a.order - b.order);
+                    const index = siblings.findIndex(f => f.id === id);
+                    
+                    if (direction === 'up' && index > 0) {
+                        const prevSibling = siblings[index - 1];
+                        return { ...prev, folders: prev.folders.map(f => f.id === id ? { ...f, order: prevSibling.order } : f.id === prevSibling.id ? { ...f, order: folder.order } : f) };
+                    }
+                    if (direction === 'down' && index < siblings.length - 1) {
+                        const nextSibling = siblings[index + 1];
+                        return { ...prev, folders: prev.folders.map(f => f.id === id ? { ...f, order: nextSibling.order } : f.id === nextSibling.id ? { ...f, order: folder.order } : f) };
+                    }
+                    return prev;
+                });
+            };
 
-  const handleAdd = (book) => {
-    if (addBook(book, folderId)) {
-      onClose();
-    }
-  };
+            // Kitap İşlemleri
+            const addBook = (bookData, folderId = null) => {
+                if (bookData.isbn && data.books.some(b => b.isbn === bookData.isbn)) {
+                    showToast('Bu kitap zaten kütüphanenizde mevcut!');
+                    return false;
+                }
+                const siblings = data.books.filter(b => b.folderId === folderId);
+                const order = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
+                const newBook = { ...bookData, id: generateId(), folderId, order, inLibrary: false, isRead: false };
+                setData(prev => ({ ...prev, books: [...prev.books, newBook] }));
+                showToast('Kitap başarıyla eklendi.');
+                return true;
+            };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh] shadow-2xl">
-        <div className="p-4 border-b flex justify-between items-center bg-zinc-50">
-          <h2 className="text-lg font-semibold text-zinc-800">Yeni Kitap Ekle</h2>
-          <button onClick={onClose} className="p-1 hover:bg-zinc-200 rounded-md transition-colors"><X size={20} /></button>
-        </div>
-        
-        <div className="p-4 flex flex-col gap-3">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 text-zinc-400" size={18} />
-              <input 
-                type="text" 
-                placeholder="Kitap Adı veya ISBN girin..." 
-                className="w-full pl-9 pr-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-800 bg-zinc-50"
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && searchBooks()}
-              />
-            </div>
-            <button 
-              onClick={searchBooks}
-              className="px-4 py-2 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 font-medium transition-colors"
-            >
-              Ara
-            </button>
-          </div>
-          <input 
-            type="text" 
-            placeholder="Yayınevine göre filtrele (Opsiyonel)" 
-            className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-800 bg-zinc-50 text-sm"
-            value={publisherFilter}
-            onChange={e => setPublisherFilter(e.target.value)}
-          />
-        </div>
+            const updateBook = (id, updates) => {
+                setData(prev => ({ ...prev, books: prev.books.map(b => b.id === id ? { ...b, ...updates } : b) }));
+            };
 
-        <div className="flex-1 overflow-y-auto p-4 bg-zinc-50/50">
-          {loading ? (
-            <div className="text-center py-8 text-zinc-500">Aranıyor...</div>
-          ) : results.length > 0 ? (
-            <div className="flex flex-col gap-3">
-              {results.map((book, idx) => (
-                <div key={idx} className="bg-white p-4 rounded-xl border flex justify-between items-center shadow-sm">
-                  <div>
-                    <h3 className="font-semibold text-zinc-800">{book.title}</h3>
-                    <p className="text-sm text-zinc-500">{book.author} • {book.publisher}</p>
-                    <p className="text-xs text-zinc-400 mt-1">ISBN: {book.isbn || 'Yok'}</p>
-                  </div>
-                  <button 
-                    onClick={() => handleAdd(book)}
-                    className="p-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg transition-colors"
-                    title="Ekle"
-                  >
-                    <Plus size={20} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-zinc-400 text-sm">
-              Sonuç bulunamadı. Lütfen arama yapın.
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
+            const reorderBook = (id, direction) => {
+                setData(prev => {
+                    const book = prev.books.find(b => b.id === id);
+                    if (!book) return prev;
+                    const siblings = prev.books.filter(b => b.folderId === book.folderId).sort((a, b) => a.order - b.order);
+                    const index = siblings.findIndex(b => b.id === id);
+                    
+                    if (direction === 'up' && index > 0) {
+                        const prevSibling = siblings[index - 1];
+                        return { ...prev, books: prev.books.map(b => b.id === id ? { ...b, order: prevSibling.order } : b.id === prevSibling.id ? { ...b, order: book.order } : b) };
+                    }
+                    if (direction === 'down' && index < siblings.length - 1) {
+                        const nextSibling = siblings[index + 1];
+                        return { ...prev, books: prev.books.map(b => b.id === id ? { ...b, order: nextSibling.order } : b.id === nextSibling.id ? { ...b, order: book.order } : b) };
+                    }
+                    return prev;
+                });
+            };
 
+            return (
+                <ArchiveContext.Provider value={{ books: data.books, folders: data.folders, addFolder, reorderFolder, addBook, updateBook, reorderBook, toast }}>
+                    {children}
+                    {toast && (
+                        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-zinc-900 text-white px-5 py-2.5 rounded-full shadow-2xl z-50 text-sm font-medium transition-all duration-300">
+                            {toast}
+                        </div>
+                    )}
+                </ArchiveContext.Provider>
+            );
+        };
 
-const BookDetailModal = ({ bookId, isOpen, onClose }) => {
-  const { books, updateBook, folders } = useArchive();
-  const book = books.find(b => b.id === bookId);
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({});
-  const [showMove, setShowMove] = useState(false);
+        // --- BİLEŞENLER ---
+        const SearchAddModal = ({ isOpen, onClose, folderId }) => {
+            const { addBook } = useArchive();
+            const [query, setQuery] = useState('');
+            const [publisherFilter, setPublisherFilter] = useState('');
+            const [results, setResults] = useState([]);
+            const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (book) setFormData(book);
-  }, [book]);
+            if (!isOpen) return null;
 
-  if (!isOpen || !book) return null;
+            const searchBooks = async () => {
+                if (!query.trim()) return;
+                setLoading(true);
+                try {
+                    const isIsbn = /^\d+$/.test(query.replace(/[- ]/g, ''));
+                    const q = isIsbn ? `isbn:${query.replace(/[- ]/g, '')}` : `intitle:${query}`;
+                    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=10&key=${API_KEY}`);
+                    const data = await res.json();
+                    
+                    if (data.items) {
+                        let parsed = data.items.map(item => {
+                            const vol = item.volumeInfo;
+                            const isbnObj = vol.industryIdentifiers?.find(i => i.type === 'ISBN_13' || i.type === 'ISBN_10');
+                            return {
+                                isbn: isbnObj ? isbnObj.identifier : '',
+                                title: vol.title || 'Bilinmeyen Kitap',
+                                author: vol.authors ? vol.authors.join(', ') : 'Bilinmeyen Yazar',
+                                publisher: vol.publisher || 'Bilinmeyen Yayınevi',
+                                pageCount: vol.pageCount || 0,
+                                year: vol.publishedDate ? vol.publishedDate.substring(0, 4) : '',
+                                price: ''
+                            };
+                        });
+                        if (publisherFilter) parsed = parsed.filter(b => b.publisher.toLowerCase().includes(publisherFilter.toLowerCase()));
+                        setResults(parsed);
+                    } else { setResults([]); }
+                } catch (error) { console.error(error); }
+                setLoading(false);
+            };
 
-  const handleSave = () => {
-    updateBook(book.id, formData);
-    setIsEditing(false);
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const toggleLibrary = () => updateBook(book.id, { inLibrary: !book.inLibrary });
-  const toggleRead = () => updateBook(book.id, { isRead: !book.isRead });
-
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
-      <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-        
-        {/* Header */}
-        <div className="p-4 border-b flex justify-between items-start bg-zinc-50">
-          <div className="flex-1 pr-4">
-            {isEditing ? (
-              <input 
-                name="title" value={formData.title} onChange={handleChange}
-                className="w-full font-bold text-lg border-b border-zinc-300 focus:outline-none focus:border-zinc-800 bg-transparent"
-              />
-            ) : (
-              <h2 className="text-xl font-bold text-zinc-900 leading-tight">{book.title}</h2>
-            )}
-            <p className="text-sm text-zinc-500 mt-1">ISBN: {book.isbn || 'Belirtilmemiş'}</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-zinc-200 rounded-full transition-colors bg-zinc-100">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Status Toggles */}
-        <div className="flex border-b divide-x">
-          <button 
-            onClick={toggleLibrary}
-            className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 transition-colors ${book.inLibrary ? 'bg-zinc-900 text-white' : 'bg-white text-zinc-600 hover:bg-zinc-50'}`}
-          >
-            <Library size={18} />
-            <span className="text-xs font-medium">Kütüphanemde</span>
-          </button>
-          <button 
-            onClick={toggleRead}
-            className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 transition-colors ${book.isRead ? 'bg-green-600 text-white' : 'bg-white text-zinc-600 hover:bg-zinc-50'}`}
-          >
-            <Check size={18} />
-            <span className="text-xs font-medium">Okundu</span>
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-5 flex-1 overflow-y-auto space-y-4">
-          <div className="space-y-3">
-            {[
-              { label: 'Yazar', name: 'author' },
-              { label: 'Yayınevi', name: 'publisher' },
-              { label: 'Sayfa Sayısı', name: 'pageCount', type: 'number' },
-              { label: 'Basım Yılı', name: 'year', type: 'number' },
-              { label: 'Fiyat (₺)', name: 'price', type: 'number' },
-            ].map(field => (
-              <div key={field.name} className="flex flex-col">
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">{field.label}</label>
-                {isEditing ? (
-                  <input
-                    type={field.type || 'text'}
-                    name={field.name}
-                    value={formData[field.name]}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-zinc-800 bg-zinc-50"
-                  />
-                ) : (
-                  <div className="text-zinc-800 font-medium py-1">
-                    {book[field.name] || '-'}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Move Book Section */}
-          {!isEditing && (
-            <div className="pt-4 border-t mt-4">
-              <button 
-                onClick={() => setShowMove(!showMove)}
-                className="flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900 font-medium"
-              >
-                <MoveRight size={16} /> Klasörü Değiştir
-              </button>
-              {showMove && (
-                <div className="mt-2 p-2 border rounded-xl bg-zinc-50 max-h-40 overflow-y-auto">
-                  <div 
-                    onClick={() => { updateBook(book.id, { folderId: null }); setShowMove(false); }}
-                    className={`p-2 text-sm rounded-lg cursor-pointer ${book.folderId === null ? 'bg-zinc-200 font-semibold' : 'hover:bg-zinc-100'}`}
-                  >
-                    / Ana Dizin
-                  </div>
-                  {folders.map(f => (
-                    <div 
-                      key={f.id}
-                      onClick={() => { updateBook(book.id, { folderId: f.id }); setShowMove(false); }}
-                      className={`p-2 text-sm rounded-lg cursor-pointer ${book.folderId === f.id ? 'bg-zinc-200 font-semibold' : 'hover:bg-zinc-100'}`}
-                    >
-                      {f.name}
+            return (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh] shadow-2xl animate-fade-in">
+                        <div className="p-4 border-b flex justify-between items-center bg-zinc-50">
+                            <h2 className="text-lg font-bold text-zinc-800">Yeni Kitap Ekle</h2>
+                            <button onClick={onClose} className="p-1.5 bg-zinc-200 hover:bg-zinc-300 rounded-full transition-colors"><XIcon size={18} /></button>
+                        </div>
+                        <div className="p-4 flex flex-col gap-3">
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <SearchIcon className="absolute left-3 top-3 text-zinc-400" size={18} />
+                                    <input type="text" placeholder="Kitap Adı veya ISBN..." className="w-full pl-10 pr-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-800 bg-zinc-50" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchBooks()} />
+                                </div>
+                                <button onClick={searchBooks} className="px-5 py-2.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 font-medium transition-colors">Ara</button>
+                            </div>
+                            <input type="text" placeholder="Yayınevine göre filtrele (Opsiyonel)" className="w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-800 bg-zinc-50 text-sm" value={publisherFilter} onChange={e => setPublisherFilter(e.target.value)} />
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 bg-zinc-50/50">
+                            {loading ? <div className="text-center py-8 text-zinc-500 font-medium animate-pulse">Aranıyor...</div> : 
+                            results.length > 0 ? (
+                                <div className="flex flex-col gap-3">
+                                    {results.map((book, idx) => (
+                                        <div key={idx} className="bg-white p-4 rounded-xl border flex justify-between items-center shadow-sm">
+                                            <div>
+                                                <h3 className="font-semibold text-zinc-800">{book.title}</h3>
+                                                <p className="text-sm text-zinc-500">{book.author} • {book.publisher}</p>
+                                                <p className="text-xs text-zinc-400 mt-1">ISBN: {book.isbn || 'Yok'}</p>
+                                            </div>
+                                            <button onClick={() => { addBook(book, folderId); onClose(); }} className="p-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 rounded-xl transition-colors"><PlusIcon size={20} /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : <div className="text-center py-8 text-zinc-400 text-sm">Arama yaparak kitap ekleyebilirsiniz.</div>}
+                        </div>
                     </div>
-                  ))}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+            );
+        };
 
-        {/* Footer */}
-        <div className="p-4 border-t bg-zinc-50 flex gap-2">
-          {isEditing ? (
-            <>
-              <button 
-                onClick={() => setIsEditing(false)}
-                className="flex-1 py-2.5 rounded-xl text-zinc-600 font-medium hover:bg-zinc-200 transition-colors"
-              >
-                İptal
-              </button>
-              <button 
-                onClick={handleSave}
-                className="flex-1 py-2.5 rounded-xl bg-zinc-900 text-white font-medium hover:bg-zinc-800 transition-colors"
-              >
-                Kaydet
-              </button>
-            </>
-          ) : (
-            <button 
-              onClick={() => setIsEditing(true)}
-              className="w-full py-2.5 rounded-xl flex items-center justify-center gap-2 bg-zinc-900 text-white font-medium hover:bg-zinc-800 transition-colors"
-            >
-              <Edit2 size={16} /> Bilgileri Düzenle
-            </button>
-          )}
-        </div>
+        const BookDetailModal = ({ bookId, isOpen, onClose }) => {
+            const { books, updateBook, folders } = useArchive();
+            const book = books.find(b => b.id === bookId);
+            const [isEditing, setIsEditing] = useState(false);
+            const [formData, setFormData] = useState({});
+            const [showMove, setShowMove] = useState(false);
 
-      </div>
-    </div>
-  );
-};
+            useEffect(() => { if (book) setFormData(book); }, [book]);
+            if (!isOpen || !book) return null;
 
+            const handleSave = () => { updateBook(book.id, formData); setIsEditing(false); };
+            const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-const BookCard = ({ book, onOpen, showIndicator = false }) => {
-  const { reorderBook } = useArchive();
+            return (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-40">
+                    <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+                        <div className="p-4 border-b flex justify-between items-start bg-zinc-50">
+                            <div className="flex-1 pr-4">
+                                {isEditing ? <input name="title" value={formData.title} onChange={handleChange} className="w-full font-bold text-lg border-b border-zinc-300 focus:outline-none bg-transparent pb-1" /> : <h2 className="text-xl font-bold text-zinc-900 leading-tight">{book.title}</h2>}
+                                <p className="text-sm text-zinc-500 mt-1">ISBN: {book.isbn || 'Belirtilmemiş'}</p>
+                            </div>
+                            <button onClick={onClose} className="p-1.5 bg-zinc-200 hover:bg-zinc-300 rounded-full transition-colors"><XIcon size={18} /></button>
+                        </div>
+                        <div className="flex border-b divide-x">
+                            <button onClick={() => updateBook(book.id, { inLibrary: !book.inLibrary })} className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 transition-colors ${book.inLibrary ? 'bg-zinc-900 text-white' : 'bg-white text-zinc-600 hover:bg-zinc-50'}`}>
+                                <LibraryIcon size={18} /><span className="text-xs font-medium">Kütüphanemde</span>
+                            </button>
+                            <button onClick={() => updateBook(book.id, { isRead: !book.isRead })} className={`flex-1 py-3 px-2 flex flex-col items-center gap-1 transition-colors ${book.isRead ? 'bg-green-600 text-white' : 'bg-white text-zinc-600 hover:bg-zinc-50'}`}>
+                                <CheckIcon size={18} /><span className="text-xs font-medium">Okundu</span>
+                            </button>
+                        </div>
+                        <div className="p-5 flex-1 overflow-y-auto space-y-4">
+                            <div className="space-y-3">
+                                {[{ label: 'Yazar', name: 'author' }, { label: 'Yayınevi', name: 'publisher' }, { label: 'Sayfa Sayısı', name: 'pageCount', type: 'number' }, { label: 'Basım Yılı', name: 'year', type: 'number' }, { label: 'Fiyat (₺)', name: 'price', type: 'number' }].map(field => (
+                                    <div key={field.name} className="flex flex-col">
+                                        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">{field.label}</label>
+                                        {isEditing ? <input type={field.type || 'text'} name={field.name} value={formData[field.name]} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-zinc-800 bg-zinc-50" /> : <div className="text-zinc-800 font-medium py-1">{book[field.name] || '-'}</div>}
+                                    </div>
+                                ))}
+                            </div>
+                            {!isEditing && (
+                                <div className="pt-4 border-t mt-4">
+                                    <button onClick={() => setShowMove(!showMove)} className="flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900 font-medium"><MoveRightIcon size={16} /> Klasörü Değiştir</button>
+                                    {showMove && (
+                                        <div className="mt-2 p-2 border rounded-xl bg-zinc-50 max-h-40 overflow-y-auto">
+                                            <div onClick={() => { updateBook(book.id, { folderId: null }); setShowMove(false); }} className={`p-2 text-sm rounded-lg cursor-pointer ${book.folderId === null ? 'bg-zinc-200 font-semibold' : 'hover:bg-zinc-100'}`}>/ Ana Dizin</div>
+                                            {folders.map(f => <div key={f.id} onClick={() => { updateBook(book.id, { folderId: f.id }); setShowMove(false); }} className={`p-2 text-sm rounded-lg cursor-pointer ${book.folderId === f.id ? 'bg-zinc-200 font-semibold' : 'hover:bg-zinc-100'}`}>{f.name}</div>)}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-4 border-t bg-zinc-50 flex gap-2">
+                            {isEditing ? (
+                                <><button onClick={() => setIsEditing(false)} className="flex-1 py-2.5 rounded-xl text-zinc-600 font-medium hover:bg-zinc-200 transition-colors">İptal</button><button onClick={handleSave} className="flex-1 py-2.5 rounded-xl bg-zinc-900 text-white font-medium hover:bg-zinc-800 transition-colors">Kaydet</button></>
+                            ) : <button onClick={() => setIsEditing(true)} className="w-full py-2.5 rounded-xl flex items-center justify-center gap-2 bg-zinc-900 text-white font-medium hover:bg-zinc-800 transition-colors"><EditIcon size={16} /> Bilgileri Düzenle</button>}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
 
-  return (
-    <div className="group flex items-center justify-between p-3 mb-2 bg-white border border-zinc-100 rounded-xl shadow-sm hover:shadow-md hover:border-zinc-300 transition-all ml-4">
-      <div 
-        className="flex-1 cursor-pointer flex items-center gap-3"
-        onClick={() => onOpen(book.id)}
-      >
-        <div className="bg-zinc-100 p-2 rounded-lg text-zinc-500">
-          <BookOpen size={18} />
-        </div>
-        <div>
-          <h4 className="font-semibold text-zinc-800 text-sm">{book.title}</h4>
-          <p className="text-xs text-zinc-500">{book.publisher || 'Yayınevi Yok'}</p>
-        </div>
-        {showIndicator && book.inLibrary && (
-          <span className="ml-2 w-2 h-2 rounded-full bg-blue-500" title="Kütüphanemde"></span>
-        )}
-      </div>
-      <div className="flex flex-col gap-1 opacity-20 group-hover:opacity-100 transition-opacity">
-        <button onClick={() => reorderBook(book.id, 'up')} className="p-0.5 bg-zinc-100 rounded hover:bg-zinc-200"><ArrowUp size={12} /></button>
-        <button onClick={() => reorderBook(book.id, 'down')} className="p-0.5 bg-zinc-100 rounded hover:bg-zinc-200"><ArrowDown size={12} /></button>
-      </div>
-    </div>
-  );
-};
+        const BookCard = ({ book, onOpen, showIndicator = false }) => {
+            const { reorderBook } = useArchive();
+            return (
+                <div className="group flex items-center justify-between p-3 mb-2 bg-white border border-zinc-200 rounded-xl shadow-sm hover:shadow-md hover:border-zinc-300 transition-all ml-4">
+                    <div className="flex-1 cursor-pointer flex items-center gap-3" onClick={() => onOpen(book.id)}>
+                        <div className="bg-zinc-100 p-2 rounded-lg text-zinc-500"><BookOpenIcon size={18} /></div>
+                        <div>
+                            <h4 className="font-semibold text-zinc-800 text-sm line-clamp-1">{book.title}</h4>
+                            <p className="text-xs text-zinc-500">{book.publisher || 'Yayınevi Yok'}</p>
+                        </div>
+                        {showIndicator && book.inLibrary && <span className="ml-2 w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" title="Kütüphanemde"></span>}
+                    </div>
+                    <div className="flex flex-col gap-1 opacity-20 group-hover:opacity-100 transition-opacity pl-2 border-l ml-2">
+                        <button onClick={() => reorderBook(book.id, 'up')} className="p-0.5 bg-zinc-100 rounded hover:bg-zinc-200 text-zinc-600"><ArrowUpIcon size={12} /></button>
+                        <button onClick={() => reorderBook(book.id, 'down')} className="p-0.5 bg-zinc-100 rounded hover:bg-zinc-200 text-zinc-600"><ArrowDownIcon size={12} /></button>
+                    </div>
+                </div>
+            );
+        };
 
-const FolderNode = ({ 
-  folder, 
-  allFolders, 
-  allBooks, 
-  level = 0, 
-  onAddBook, 
-  onOpenBook,
-  isLibraryView = false 
-}) => {
-  const { addFolder, reorderFolder } = useArchive();
-  const [isOpen, setIsOpen] = useState(true);
-  const [isAddingFolder, setIsAddingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
+        const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpenBook, isLibraryView = false }) => {
+            const { addFolder, reorderFolder } = useArchive();
+            const [isOpen, setIsOpen] = useState(true);
+            const [isAddingFolder, setIsAddingFolder] = useState(false);
+            const [newFolderName, setNewFolderName] = useState('');
 
-  // Get immediate children based on current view constraints
-  const childFolders = allFolders
-    .filter(f => f.parentId === folder.id)
-    .sort((a, b) => a.order - b.order);
-    
-  const childBooks = allBooks
-    .filter(b => b.folderId === folder.id)
-    .sort((a, b) => a.order - b.order);
+            const childFolders = allFolders.filter(f => f.parentId === folder.id).sort((a, b) => a.order - b.order);
+            const childBooks = allBooks.filter(b => b.folderId === folder.id).sort((a, b) => a.order - b.order);
 
-  const handleAddSubfolder = (e) => {
-    e.preventDefault();
-    if (newFolderName.trim()) {
-      addFolder(newFolderName.trim(), folder.id);
-      setNewFolderName('');
-      setIsAddingFolder(false);
-      setIsOpen(true);
-    }
-  };
+            const handleAdd = (e) => { e.preventDefault(); if (newFolderName.trim()) { addFolder(newFolderName.trim(), folder.id); setNewFolderName(''); setIsAddingFolder(false); setIsOpen(true); } };
 
-  return (
-    <div className="mb-1" style={{ marginLeft: level > 0 ? '1rem' : '0' }}>
-      <div className="group flex items-center justify-between p-2 rounded-lg hover:bg-zinc-100 transition-colors">
-        <div 
-          className="flex items-center gap-2 cursor-pointer flex-1"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          {isOpen ? <ChevronDown size={18} className="text-zinc-500" /> : <ChevronRight size={18} className="text-zinc-500" />}
-          <span className="font-medium text-zinc-700">{folder.name}</span>
-          <span className="text-xs text-zinc-400 bg-zinc-200 px-1.5 py-0.5 rounded-full">{childBooks.length}</span>
-        </div>
-        
-        {!isLibraryView && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={() => setIsAddingFolder(true)} className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 rounded-md" title="Alt Klasör Ekle"><FolderPlus size={16} /></button>
-            <button onClick={() => onAddBook(folder.id)} className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 rounded-md" title="Kitap Ekle"><Plus size={16} /></button>
-            <div className="flex flex-col ml-1 border-l border-zinc-300 pl-1">
-              <button onClick={() => reorderFolder(folder.id, 'up')} className="p-0.5 text-zinc-400 hover:text-zinc-800"><ArrowUp size={12} /></button>
-              <button onClick={() => reorderFolder(folder.id, 'down')} className="p-0.5 text-zinc-400 hover:text-zinc-800"><ArrowDown size={12} /></button>
-            </div>
-          </div>
-        )}
-      </div>
+            return (
+                <div className="mb-1" style={{ marginLeft: level > 0 ? '1rem' : '0' }}>
+                    <div className="group flex items-center justify-between p-2 rounded-lg hover:bg-zinc-100 transition-colors">
+                        <div className="flex items-center gap-2 cursor-pointer flex-1" onClick={() => setIsOpen(!isOpen)}>
+                            {isOpen ? <ChevronDownIcon size={18} className="text-zinc-500" /> : <ChevronRightIcon size={18} className="text-zinc-500" />}
+                            <span className="font-semibold text-zinc-700 text-sm">{folder.name}</span>
+                            <span className="text-[10px] font-bold text-zinc-500 bg-zinc-200 px-2 py-0.5 rounded-full">{childBooks.length}</span>
+                        </div>
+                        {!isLibraryView && (
+                            <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => setIsAddingFolder(true)} className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 rounded-md"><FolderPlusIcon size={16} /></button>
+                                <button onClick={() => onAddBook(folder.id)} className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 rounded-md"><PlusIcon size={16} /></button>
+                                <div className="flex flex-col ml-1 border-l border-zinc-300 pl-1">
+                                    <button onClick={() => reorderFolder(folder.id, 'up')} className="p-0.5 text-zinc-400 hover:text-zinc-800"><ArrowUpIcon size={12} /></button>
+                                    <button onClick={() => reorderFolder(folder.id, 'down')} className="p-0.5 text-zinc-400 hover:text-zinc-800"><ArrowDownIcon size={12} /></button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    {isOpen && (
+                        <div className="mt-1 border-l-2 border-zinc-200 ml-3 pb-2">
+                            {isAddingFolder && (
+                                <form onSubmit={handleAdd} className="ml-4 mb-2 flex items-center gap-2">
+                                    <input autoFocus type="text" placeholder="Klasör adı..." value={newFolderName} onChange={e => setNewFolderName(e.target.value)} className="text-sm px-3 py-1.5 border rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-800" />
+                                    <button type="button" onClick={() => setIsAddingFolder(false)} className="p-1.5 bg-zinc-200 rounded text-zinc-600 hover:text-zinc-800"><XIcon size={14} /></button>
+                                </form>
+                            )}
+                            <div className="mt-2">{childBooks.map(b => <BookCard key={b.id} book={b} onOpen={onOpenBook} showIndicator={!isLibraryView} />)}</div>
+                            <div>{childFolders.map(cf => <FolderNode key={cf.id} folder={cf} allFolders={allFolders} allBooks={allBooks} level={level + 1} onAddBook={onAddBook} onOpenBook={onOpenBook} isLibraryView={isLibraryView} />)}</div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
 
-      {isOpen && (
-        <div className="mt-1 border-l-2 border-zinc-100 ml-3">
-          {/* Add Subfolder Input */}
-          {isAddingFolder && (
-            <form onSubmit={handleAddSubfolder} className="ml-4 mb-2 flex items-center gap-2">
-              <input 
-                autoFocus
-                type="text" 
-                placeholder="Klasör adı..."
-                value={newFolderName}
-                onChange={e => setNewFolderName(e.target.value)}
-                className="text-sm px-3 py-1.5 border rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-800"
-              />
-              <button type="button" onClick={() => setIsAddingFolder(false)} className="p-1 text-zinc-400 hover:text-zinc-600"><X size={16} /></button>
-            </form>
-          )}
+        const ListsView = () => {
+            const { folders, books, addFolder } = useArchive();
+            const [isAddingRoot, setIsAddingRoot] = useState(false);
+            const [newFolderName, setNewFolderName] = useState('');
+            const [searchModalOpen, setSearchModalOpen] = useState(false);
+            const [activeFolderForAdd, setActiveFolderForAdd] = useState(null);
+            const [detailModalOpen, setDetailModalOpen] = useState(false);
+            const [activeBookId, setActiveBookId] = useState(null);
 
-          {/* Render Child Books */}
-          <div className="mt-2">
-            {childBooks.map(book => (
-              <BookCard 
-                key={book.id} 
-                book={book} 
-                onOpen={onOpenBook} 
-                showIndicator={!isLibraryView} // Sadece Listelerim'de kütüphane indicator'ı göster
-              />
-            ))}
-          </div>
+            const rootFolders = folders.filter(f => f.parentId === null).sort((a, b) => a.order - b.order);
+            const rootBooks = books.filter(b => b.folderId === null).sort((a, b) => a.order - b.order);
 
-          {/* Render Child Folders */}
-          <div>
-            {childFolders.map(childFolder => (
-              <FolderNode 
-                key={childFolder.id}
-                folder={childFolder}
-                allFolders={allFolders}
-                allBooks={allBooks}
-                level={level + 1}
-                onAddBook={onAddBook}
-                onOpenBook={onOpenBook}
-                isLibraryView={isLibraryView}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+            const handleAddRoot = (e) => { e.preventDefault(); if (newFolderName.trim()) { addFolder(newFolderName.trim(), null); setNewFolderName(''); setIsAddingRoot(false); } };
 
+            return (
+                <div className="h-full flex flex-col bg-white">
+                    <div className="p-5 pt-8 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 flex justify-between items-center shadow-sm">
+                        <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Listelerim</h1>
+                        <div className="flex gap-2">
+                            <button onClick={() => setIsAddingRoot(true)} className="p-2.5 text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-xl transition-colors"><FolderPlusIcon size={20} /></button>
+                            <button onClick={() => { setActiveFolderForAdd(null); setSearchModalOpen(true); }} className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-colors font-semibold shadow-md"><PlusIcon size={18} /> Ekle</button>
+                        </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 pb-28">
+                        {isAddingRoot && (
+                            <form onSubmit={handleAddRoot} className="mb-4 flex items-center gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200 shadow-inner">
+                                <input autoFocus type="text" placeholder="Yeni liste adı..." value={newFolderName} onChange={e => setNewFolderName(e.target.value)} className="flex-1 bg-transparent focus:outline-none text-zinc-800 font-medium" />
+                                <button type="submit" className="p-2 bg-zinc-900 text-white rounded-lg"><CheckIcon size={16} /></button>
+                                <button type="button" onClick={() => setIsAddingRoot(false)} className="p-2 bg-zinc-200 text-zinc-600 rounded-lg"><XIcon size={16} /></button>
+                            </form>
+                        )}
+                        {books.length === 0 && folders.length === 0 && !isAddingRoot ? (
+                            <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-4 pb-20">
+                                <FileTextIcon size={56} className="opacity-20 mb-2" />
+                                <p className="text-center font-medium text-zinc-500">Henüz hiçbir listeniz yok.<br/>Klasör veya kitap ekleyerek başlayın.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={id => { setActiveBookId(id); setDetailModalOpen(true); }} showIndicator={true} />)}
+                                {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={folders} allBooks={books} onAddBook={id => { setActiveFolderForAdd(id); setSearchModalOpen(true); }} onOpenBook={id => { setActiveBookId(id); setDetailModalOpen(true); }} />)}
+                            </div>
+                        )}
+                    </div>
+                    <SearchAddModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} folderId={activeFolderForAdd} />
+                    <BookDetailModal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} bookId={activeBookId} />
+                </div>
+            );
+        };
 
+        const LibraryView = () => {
+            const { folders, books } = useArchive();
+            const [detailModalOpen, setDetailModalOpen] = useState(false);
+            const [activeBookId, setActiveBookId] = useState(null);
 
-const ListsView = () => {
-  const { folders, books, addFolder } = useArchive();
-  const [isAddingRoot, setIsAddingRoot] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [searchModalOpen, setSearchModalOpen] = useState(false);
-  const [activeFolderForAdd, setActiveFolderForAdd] = useState(null);
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [activeBookId, setActiveBookId] = useState(null);
+            const libraryBooks = useMemo(() => books.filter(b => b.inLibrary), [books]);
+            const visibleFolderIds = useMemo(() => {
+                const ids = new Set();
+                const addAncestors = (fid) => {
+                    if (!fid || ids.has(fid)) return;
+                    ids.add(fid);
+                    const f = folders.find(x => x.id === fid);
+                    if (f?.parentId) addAncestors(f.parentId);
+                };
+                libraryBooks.forEach(b => { if (b.folderId) addAncestors(b.folderId); });
+                return ids;
+            }, [libraryBooks, folders]);
 
-  const rootFolders = folders.filter(f => f.parentId === null).sort((a, b) => a.order - b.order);
-  const rootBooks = books.filter(b => b.folderId === null).sort((a, b) => a.order - b.order);
+            const visibleFolders = folders.filter(f => visibleFolderIds.has(f.id));
+            const rootFolders = visibleFolders.filter(f => f.parentId === null).sort((a, b) => a.order - b.order);
+            const rootBooks = libraryBooks.filter(b => b.folderId === null).sort((a, b) => a.order - b.order);
 
-  const handleAddRootFolder = (e) => {
-    e.preventDefault();
-    if (newFolderName.trim()) {
-      addFolder(newFolderName.trim(), null);
-      setNewFolderName('');
-      setIsAddingRoot(false);
-    }
-  };
+            return (
+                <div className="h-full flex flex-col bg-white">
+                    <div className="p-5 pt-8 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 shadow-sm">
+                        <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Kütüphanem</h1>
+                        <p className="text-sm text-zinc-500 mt-1 font-medium">Sahip olduğunuz kitaplar</p>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 pb-28">
+                        {libraryBooks.length === 0 ? (
+                            <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-4 pb-20">
+                                <LibraryIcon size={56} className="opacity-20 mb-2" />
+                                <p className="text-center font-medium text-zinc-500">Kütüphaneniz boş.<br/>"Listelerim" bölümünden kitap ekleyin.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={id => { setActiveBookId(id); setDetailModalOpen(true); }} />)}
+                                {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={visibleFolders} allBooks={libraryBooks} onOpenBook={id => { setActiveBookId(id); setDetailModalOpen(true); }} isLibraryView={true} />)}
+                            </div>
+                        )}
+                    </div>
+                    <BookDetailModal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} bookId={activeBookId} />
+                </div>
+            );
+        };
 
-  const openAddBook = (folderId = null) => {
-    setActiveFolderForAdd(folderId);
-    setSearchModalOpen(true);
-  };
+        const StatsView = () => {
+            const { books } = useArchive();
+            const stats = useMemo(() => {
+                const libBooks = books.filter(b => b.inLibrary);
+                const calc = (arr) => {
+                    if (!arr.length) return null;
+                    let tPages = 0, longest = arr[0], shortest = arr[0], authors = {}, tPrice = 0;
+                    arr.forEach(b => {
+                        const p = parseInt(b.pageCount) || 0;
+                        tPages += p;
+                        if (p > (parseInt(longest.pageCount) || 0)) longest = b;
+                        if (p > 0 && (parseInt(shortest.pageCount) || 0) === 0) shortest = b;
+                        else if (p > 0 && p < (parseInt(shortest.pageCount) || Infinity)) shortest = b;
+                        if (b.author) authors[b.author] = (authors[b.author] || 0) + 1;
+                        tPrice += parseFloat(b.price) || 0;
+                    });
+                    let bestAuthor = '-', max = 0;
+                    Object.entries(authors).forEach(([a, c]) => { if (c > max) { max = c; bestAuthor = a; }});
+                    return { total: arr.length, pages: tPages, avg: Math.round(tPages / arr.length) || 0, longest: longest.title || '-', shortest: shortest.pageCount > 0 ? shortest.title : '-', author: bestAuthor, price: tPrice };
+                };
+                const readArr = libBooks.filter(b => b.isRead), unreadArr = libBooks.filter(b => !b.isRead);
+                return { 
+                    list: calc(books) || { total: 0, pages: 0, avg: 0, longest: '-', shortest: '-', author: '-' }, 
+                    lib: calc(libBooks) || { total: 0, pages: 0, avg: 0, longest: '-', shortest: '-', author: '-', price: 0 },
+                    read: { c: readArr.length, p: readArr.reduce((s, b) => s + (parseInt(b.pageCount)||0), 0), uc: unreadArr.length, up: unreadArr.reduce((s, b) => s + (parseInt(b.pageCount)||0), 0) }
+                };
+            }, [books]);
 
-  const openBookDetail = (bookId) => {
-    setActiveBookId(bookId);
-    setDetailModalOpen(true);
-  };
+            const Box = ({ l, v }) => (
+                <div className="bg-zinc-50 border border-zinc-200 p-4 rounded-2xl flex flex-col justify-center shadow-sm">
+                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">{l}</span>
+                    <span className="text-lg font-black text-zinc-900 truncate">{v}</span>
+                </div>
+            );
 
-  return (
-    <div className="h-full flex flex-col bg-white">
-      <div className="p-4 pt-6 pb-2 sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-zinc-100 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Listelerim</h1>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setIsAddingRoot(true)}
-            className="p-2 text-zinc-600 bg-zinc-100 hover:bg-zinc-200 rounded-xl transition-colors"
-            title="Klasör Ekle"
-          >
-            <FolderPlus size={20} />
-          </button>
-          <button 
-            onClick={() => openAddBook(null)}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-colors font-medium shadow-sm"
-          >
-            <Plus size={18} /> Kitap Ekle
-          </button>
-        </div>
-      </div>
+            return (
+                <div className="h-full flex flex-col bg-white">
+                    <div className="p-5 pt-8 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 shadow-sm">
+                        <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Verilerim</h1>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 pb-28 space-y-8">
+                        <section>
+                            <h2 className="text-lg font-bold text-zinc-800 mb-4 flex items-center gap-2"><ListIcon size={20} className="text-zinc-400"/> Genel Listelerim</h2>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Box l="Toplam Kitap" v={stats.list.total} /><Box l="Toplam Sayfa" v={stats.list.pages.toLocaleString()} />
+                                <Box l="Ort. Sayfa" v={stats.list.avg} /><Box l="Favori Yazar" v={stats.list.author} />
+                                <div className="col-span-2"><Box l="En Uzun Kitap" v={stats.list.longest} /></div>
+                                <div className="col-span-2"><Box l="En Kısa Kitap" v={stats.list.shortest} /></div>
+                            </div>
+                        </section>
+                        <section>
+                            <h2 className="text-lg font-bold text-zinc-800 mb-4 flex items-center gap-2"><LibraryIcon size={20} className="text-zinc-400"/> Kütüphanem</h2>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Box l="Toplam Kitap" v={stats.lib.total} /><Box l="Toplam Değer" v={`₺${stats.lib.price.toLocaleString()}`} />
+                                <Box l="Toplam Sayfa" v={stats.lib.pages.toLocaleString()} /><Box l="Favori Yazar" v={stats.lib.author} />
+                            </div>
+                        </section>
+                        <section>
+                            <h2 className="text-lg font-bold text-zinc-800 mb-4 flex items-center gap-2"><BookOpenIcon size={20} className="text-zinc-400"/> Okuma Durumu</h2>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="col-span-2 bg-zinc-900 text-white p-5 rounded-2xl flex items-center justify-between shadow-lg">
+                                    <div><p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mb-1">Okunan Kitap</p><p className="text-3xl font-black">{stats.read.c}</p></div>
+                                    <div className="text-right"><p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mb-1">Okunan Sayfa</p><p className="text-3xl font-black">{stats.read.p.toLocaleString()}</p></div>
+                                </div>
+                                <Box l="Okunmayan Kitap" v={stats.read.uc} /><Box l="Okunmayan Sayfa" v={stats.read.up.toLocaleString()} />
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            );
+        };
 
-      <div className="flex-1 overflow-y-auto p-4 pb-24">
-        {isAddingRoot && (
-          <form onSubmit={handleAddRootFolder} className="mb-4 flex items-center gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
-            <input 
-              autoFocus
-              type="text" 
-              placeholder="Yeni liste/klasör adı..."
-              value={newFolderName}
-              onChange={e => setNewFolderName(e.target.value)}
-              className="flex-1 bg-transparent focus:outline-none text-zinc-800"
-            />
-            <button type="submit" className="text-zinc-600 hover:text-zinc-900"><Check size={18} /></button>
-            <button type="button" onClick={() => setIsAddingRoot(false)} className="text-zinc-400 hover:text-zinc-600"><X size={18} /></button>
-          </form>
-        )}
+        const AppLayout = () => {
+            const [tab, setTab] = useState('lists');
+            return (
+                <div className="flex justify-center bg-zinc-900 min-h-screen sm:p-4 md:p-8">
+                    <div className="w-full max-w-md bg-white sm:rounded-[2rem] sm:h-[90vh] h-screen flex flex-col relative shadow-2xl overflow-hidden ring-1 ring-zinc-200">
+                        <div className="flex-1 overflow-hidden">
+                            {tab === 'lists' && <ListsView />}
+                            {tab === 'library' && <LibraryView />}
+                            {tab === 'stats' && <StatsView />}
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-zinc-200 pb-safe shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.1)]">
+                            <div className="flex justify-around items-center px-2 py-3">
+                                {[{id:'lists', i:ListIcon, l:'Listelerim'}, {id:'library', i:LibraryIcon, l:'Kütüphanem'}, {id:'stats', i:BarChartIcon, l:'Verilerim'}].map(t => (
+                                    <button key={t.id} onClick={() => setTab(t.id)} className={`flex flex-col items-center w-20 py-2 rounded-2xl transition-all duration-300 ${tab === t.id ? 'text-zinc-900 bg-zinc-100 scale-105 font-bold' : 'text-zinc-400 hover:text-zinc-600 font-medium'}`}>
+                                        <t.i size={24} strokeWidth={tab === t.id ? 2.5 : 2} />
+                                        <span className="text-[11px] mt-1.5 tracking-wide">{t.l}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
 
-        {books.length === 0 && folders.length === 0 && !isAddingRoot ? (
-          <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-4 pb-20">
-            <FileText size={48} className="opacity-20" />
-            <p className="text-center text-sm">Henüz hiçbir listeniz yok.<br/>Klasör veya kitap ekleyerek başlayın.</p>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {rootBooks.map(book => (
-              <BookCard key={book.id} book={book} onOpen={openBookDetail} showIndicator={true} />
-            ))}
-            {rootFolders.map(folder => (
-              <FolderNode 
-                key={folder.id} 
-                folder={folder} 
-                allFolders={folders} 
-                allBooks={books} 
-                onAddBook={openAddBook}
-                onOpenBook={openBookDetail}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <SearchAddModal 
-        isOpen={searchModalOpen} 
-        onClose={() => setSearchModalOpen(false)} 
-        folderId={activeFolderForAdd} 
-      />
-      <BookDetailModal 
-        isOpen={detailModalOpen} 
-        onClose={() => setDetailModalOpen(false)} 
-        bookId={activeBookId} 
-      />
-    </div>
-  );
-};
-
-
-const LibraryView = () => {
-  const { folders, books } = useArchive();
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [activeBookId, setActiveBookId] = useState(null);
-
-  // Filter books to only those in the library
-  const libraryBooks = useMemo(() => books.filter(b => b.inLibrary), [books]);
-
-  // Determine which folders need to be shown (only folders containing library books, or paths to them)
-  const visibleFolderIds = useMemo(() => {
-    const ids = new Set();
-    
-    // Helper to add a folder and all its ancestors
-    const addFolderAndAncestors = (folderId) => {
-      if (!folderId || ids.has(folderId)) return;
-      ids.add(folderId);
-      const folder = folders.find(f => f.id === folderId);
-      if (folder && folder.parentId) {
-        addFolderAndAncestors(folder.parentId);
-      }
-    };
-
-    libraryBooks.forEach(book => {
-      if (book.folderId) {
-        addFolderAndAncestors(book.folderId);
-      }
-    });
-
-    return ids;
-  }, [libraryBooks, folders]);
-
-  const visibleFolders = folders.filter(f => visibleFolderIds.has(f.id));
-  
-  const rootFolders = visibleFolders.filter(f => f.parentId === null).sort((a, b) => a.order - b.order);
-  const rootBooks = libraryBooks.filter(b => b.folderId === null).sort((a, b) => a.order - b.order);
-
-  const openBookDetail = (bookId) => {
-    setActiveBookId(bookId);
-    setDetailModalOpen(true);
-  };
-
-  return (
-    <div className="h-full flex flex-col bg-white">
-      <div className="p-4 pt-6 pb-2 sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-zinc-100">
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Kütüphanem</h1>
-        <p className="text-sm text-zinc-500 mt-1">Sadece sahip olduğunuz kitaplar</p>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 pb-24">
-        {libraryBooks.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-4 pb-20">
-            <Library size={48} className="opacity-20" />
-            <p className="text-center text-sm">Kütüphanenizde henüz kitap yok.<br/>"Listelerim" bölümünden kitapları kütüphanenize ekleyin.</p>
-          </div>
-        ) : (
-          <div className="space-y-1">
-             {rootBooks.map(book => (
-              <BookCard key={book.id} book={book} onOpen={openBookDetail} isLibraryView={true} />
-            ))}
-            {rootFolders.map(folder => (
-              <FolderNode 
-                key={folder.id} 
-                folder={folder} 
-                allFolders={visibleFolders} 
-                allBooks={libraryBooks} 
-                onOpenBook={openBookDetail}
-                isLibraryView={true}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <BookDetailModal 
-        isOpen={detailModalOpen} 
-        onClose={() => setDetailModalOpen(false)} 
-        bookId={activeBookId} 
-      />
-    </div>
-  );
-};
-
-
-const StatsView = () => {
-  const { books } = useArchive();
-
-  const stats = useMemo(() => {
-    const allBooks = books;
-    const libBooks = books.filter(b => b.inLibrary);
-    
-    // Helper to calculate common stats
-    const calc = (bookArray) => {
-      if (bookArray.length === 0) return null;
-      
-      let totalPages = 0;
-      let longest = bookArray[0];
-      let shortest = bookArray[0];
-      const authorCounts = {};
-      let totalPrice = 0;
-
-      bookArray.forEach(b => {
-        const pages = parseInt(b.pageCount) || 0;
-        totalPages += pages;
-        
-        if (pages > (parseInt(longest.pageCount) || 0)) longest = b;
-        if (pages > 0 && (parseInt(shortest.pageCount) || 0) === 0) shortest = b;
-        else if (pages > 0 && pages < (parseInt(shortest.pageCount) || Infinity)) shortest = b;
-
-        if (b.author) {
-          authorCounts[b.author] = (authorCounts[b.author] || 0) + 1;
-        }
-
-        totalPrice += parseFloat(b.price) || 0;
-      });
-
-      let mostFreqAuthor = '-';
-      let maxCount = 0;
-      Object.entries(authorCounts).forEach(([author, count]) => {
-        if (count > maxCount) {
-          maxCount = count;
-          mostFreqAuthor = author;
-        }
-      });
-
-      return {
-        total: bookArray.length,
-        totalPages,
-        avgPages: Math.round(totalPages / bookArray.length) || 0,
-        longestTitle: longest.title || '-',
-        shortestTitle: shortest.pageCount > 0 ? shortest.title : '-',
-        mostFreqAuthor,
-        totalPrice
-      };
-    };
-
-    const listStats = calc(allBooks) || { total: 0, totalPages: 0, avgPages: 0, longestTitle: '-', shortestTitle: '-', mostFreqAuthor: '-' };
-    const libStats = calc(libBooks) || { total: 0, totalPages: 0, avgPages: 0, longestTitle: '-', shortestTitle: '-', mostFreqAuthor: '-', totalPrice: 0 };
-    
-    // Reading stats (Only for inLibrary books)
-    const readBooks = libBooks.filter(b => b.isRead);
-    const unreadBooks = libBooks.filter(b => !b.isRead);
-    
-    const readPages = readBooks.reduce((sum, b) => sum + (parseInt(b.pageCount) || 0), 0);
-    const unreadPages = unreadBooks.reduce((sum, b) => sum + (parseInt(b.pageCount) || 0), 0);
-
-    return { listStats, libStats, readStats: { readCount: readBooks.length, readPages, unreadCount: unreadBooks.length, unreadPages } };
-  }, [books]);
-
-  const StatBox = ({ label, value, subtext }) => (
-    <div className="bg-zinc-50 border border-zinc-100 p-4 rounded-xl flex flex-col justify-center">
-      <span className="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">{label}</span>
-      <span className="text-xl font-bold text-zinc-900 truncate">{value}</span>
-      {subtext && <span className="text-xs text-zinc-400 mt-1 truncate">{subtext}</span>}
-    </div>
-  );
-
-  return (
-    <div className="h-full flex flex-col bg-white">
-      <div className="p-4 pt-6 pb-2 sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-zinc-100">
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Verilerim</h1>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-8">
-        
-        {/* Lists Stats */}
-        <section>
-          <h2 className="text-lg font-semibold text-zinc-800 mb-3 flex items-center gap-2">
-            <List size={20} className="text-zinc-400"/> Genel Listelerim
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <StatBox label="Toplam Kitap" value={stats.listStats.total} />
-            <StatBox label="Toplam Sayfa" value={stats.listStats.totalPages.toLocaleString()} />
-            <StatBox label="Ort. Sayfa" value={stats.listStats.avgPages} />
-            <StatBox label="Favori Yazar" value={stats.listStats.mostFreqAuthor} />
-            <StatBox label="En Uzun Kitap" value={stats.listStats.longestTitle} />
-            <StatBox label="En Kısa Kitap" value={stats.listStats.shortestTitle} />
-          </div>
-        </section>
-
-        {/* Library Stats */}
-        <section>
-          <h2 className="text-lg font-semibold text-zinc-800 mb-3 flex items-center gap-2">
-            <Library size={20} className="text-zinc-400"/> Kütüphanem
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <StatBox label="Toplam Kitap" value={stats.libStats.total} />
-            <StatBox label="Kütüphane Değeri" value={`₺${stats.libStats.totalPrice.toLocaleString()}`} />
-            <StatBox label="Toplam Sayfa" value={stats.libStats.totalPages.toLocaleString()} />
-            <StatBox label="Favori Yazar" value={stats.libStats.mostFreqAuthor} />
-          </div>
-        </section>
-
-        {/* Reading Stats */}
-        <section>
-          <h2 className="text-lg font-semibold text-zinc-800 mb-3 flex items-center gap-2">
-            <BookOpen size={20} className="text-zinc-400"/> Okuma İstatistikleri
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 bg-green-50 border border-green-100 p-4 rounded-xl flex items-center justify-between">
-              <div>
-                <p className="text-xs text-green-700 font-medium uppercase tracking-wider mb-1">Okunan Kitap</p>
-                <p className="text-2xl font-bold text-green-900">{stats.readStats.readCount}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-green-700 font-medium uppercase tracking-wider mb-1">Okunan Sayfa</p>
-                <p className="text-2xl font-bold text-green-900">{stats.readStats.readPages.toLocaleString()}</p>
-              </div>
-            </div>
-            
-            <StatBox label="Okunmayan Kitap" value={stats.readStats.unreadCount} />
-            <StatBox label="Okunmayan Sayfa" value={stats.readStats.unreadPages.toLocaleString()} />
-          </div>
-        </section>
-
-      </div>
-    </div>
-  );
-};
-
-
-const AppLayout = () => {
-  const [activeTab, setActiveTab] = useState('lists');
-
-  return (
-    <div className="flex justify-center bg-zinc-100 min-h-screen">
-      {/* Mobile-first container constraining width for desktop elegance */}
-      <div className="w-full max-w-md bg-white h-screen flex flex-col relative shadow-2xl overflow-hidden">
-        
-        {/* Main Content Area */}
-        <div className="flex-1 overflow-hidden">
-          {activeTab === 'lists' && <ListsView />}
-          {activeTab === 'library' && <LibraryView />}
-          {activeTab === 'stats' && <StatsView />}
-        </div>
-
-        {/* Bottom Navigation */}
-        <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-zinc-200 pb-safe shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
-          <div className="flex justify-around items-center px-2 py-3">
-            <button 
-              onClick={() => setActiveTab('lists')}
-              className={`flex flex-col items-center p-2 rounded-xl transition-all ${activeTab === 'lists' ? 'text-zinc-900 scale-105' : 'text-zinc-400 hover:text-zinc-600'}`}
-            >
-              <List size={24} strokeWidth={activeTab === 'lists' ? 2.5 : 2} />
-              <span className="text-[10px] font-medium mt-1">Listelerim</span>
-            </button>
-            <button 
-              onClick={() => setActiveTab('library')}
-              className={`flex flex-col items-center p-2 rounded-xl transition-all ${activeTab === 'library' ? 'text-zinc-900 scale-105' : 'text-zinc-400 hover:text-zinc-600'}`}
-            >
-              <Library size={24} strokeWidth={activeTab === 'library' ? 2.5 : 2} />
-              <span className="text-[10px] font-medium mt-1">Kütüphanem</span>
-            </button>
-            <button 
-              onClick={() => setActiveTab('stats')}
-              className={`flex flex-col items-center p-2 rounded-xl transition-all ${activeTab === 'stats' ? 'text-zinc-900 scale-105' : 'text-zinc-400 hover:text-zinc-600'}`}
-            >
-              <BarChart3 size={24} strokeWidth={activeTab === 'stats' ? 2.5 : 2} />
-              <span className="text-[10px] font-medium mt-1">Verilerim</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-
-export default function App() {
-  return (
-    <ArchiveProvider>
-      <AppLayout />
-    </ArchiveProvider>
-  );
-}
+        ReactDOM.createRoot(document.getElementById('root')).render(<ArchiveProvider><AppLayout /></ArchiveProvider>);
+    </script>
+</body>
+</html>
