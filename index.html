@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Archive Kütüphanesi</title>
-
-    <!-- Tailwind CSS -->
+    
     <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
@@ -14,7 +13,7 @@
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #e4e4e7; border-radius: 4px; }
-
+        
         #reader { width: 100%; border-radius: 12px; overflow: hidden; border: none !important; }
         #reader video { object-fit: cover; }
     </style>
@@ -25,17 +24,15 @@
     <script type="text/plain" id="app-source">
         const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
         const { createRoot } = ReactDOM;
-        const {
-          Library, List, BarChart3, Plus, Search, ChevronDown, ChevronRight,
+        // HATA BURADAYDI: window.LucideReact yerine window.lucideReact olmalıydı. Düzelttim!
+        const { 
+          Library, List, BarChart3, Plus, Search, ChevronDown, ChevronRight, 
           ArrowUp, ArrowDown, BookOpen, Edit2, Check, X, FolderPlus, FileText, MoveRight,
           Camera, Trash2, AlertCircle, WifiOff
-        } = window.LucideReact;
+        } = window.lucideReact;
 
         const STORAGE_KEY = 'archive_app_data_v3';
 
-        // --- SAĞLAM ID ÜRETİMİ ---
-        // crypto.randomUUID tarayıcıda varsa onu kullan (çakışma riski pratik olarak sıfır),
-        // yoksa zaman damgası + rastgelelik ile daha güvenli bir fallback üret.
         const generateId = () => {
           if (typeof crypto !== 'undefined' && crypto.randomUUID) {
             return crypto.randomUUID();
@@ -43,8 +40,7 @@
           return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
         };
 
-        // Başlık/yazar karşılaştırması için normalize et (büyük/küçük harf, boşluk, noktalama farklarını yok say)
-        const normalize = (str = '') =>
+        const normalize = (str = '') => 
           str.toLowerCase().trim().replace(/\s+/g, ' ').replace(/[^\p{L}\p{N} ]/gu, '');
 
         const initialState = {
@@ -76,10 +72,6 @@
             toastTimeoutRef.current = setTimeout(() => setToast(null), 3000);
           };
 
-          // --- PERFORMANS: DEBOUNCE'LU KAYIT ---
-          // Her state değişikliğinde anında disk/localStorage'a yazmak yerine
-          // 400ms boyunca yeni değişiklik gelmezse yaz. Böylece art arda gelen
-          // hızlı işlemlerde (sıralama, çoklu düzenleme) gereksiz yazma önlenir.
           useEffect(() => {
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
             saveTimeoutRef.current = setTimeout(() => {
@@ -93,7 +85,6 @@
             return () => clearTimeout(saveTimeoutRef.current);
           }, [data]);
 
-          // --- FOLDERS ---
           const addFolder = (name, parentId = null) => {
             const trimmed = name.trim();
             if (!trimmed) return;
@@ -109,7 +100,7 @@
               const updatedFolders = prev.folders
                 .filter(f => f.id !== id)
                 .map(f => f.parentId === id ? { ...f, parentId: null } : f);
-
+              
               return { ...prev, books: updatedBooks, folders: updatedFolders };
             });
             showToast('Klasör silindi, içerikler ana dizine taşındı.');
@@ -119,10 +110,10 @@
             setData(prev => {
               const folder = prev.folders.find(f => f.id === id);
               if (!folder) return prev;
-
+              
               const siblings = prev.folders.filter(f => f.parentId === folder.parentId).sort((a, b) => a.order - b.order);
               const index = siblings.findIndex(f => f.id === id);
-
+              
               if (direction === 'up' && index > 0) {
                 const prevSibling = siblings[index - 1];
                 const newFolders = prev.folders.map(f => {
@@ -145,10 +136,6 @@
             });
           };
 
-          // --- BOOKS ---
-          // Kopya kontrolü artık iki aşamalı:
-          // 1) ISBN varsa ISBN eşleşmesi
-          // 2) ISBN yoksa (veya eşleşmezse) normalize edilmiş başlık + yazar eşleşmesi
           const addBook = (bookData, folderId = null) => {
             if (!bookData.title || !bookData.title.trim()) {
               showToast('Kitap başlığı boş olamaz.', 'error');
@@ -157,7 +144,7 @@
 
             const isDuplicate = data.books.some(b => {
               if (bookData.isbn && b.isbn && b.isbn === bookData.isbn) return true;
-              return normalize(b.title) === normalize(bookData.title) &&
+              return normalize(b.title) === normalize(bookData.title) && 
                      normalize(b.author) === normalize(bookData.author);
             });
 
@@ -177,7 +164,7 @@
               inLibrary: false,
               isRead: false,
             };
-
+            
             setData(prev => ({ ...prev, books: [...prev.books, newBook] }));
             showToast('Kitap başarıyla eklendi.');
             return true;
@@ -211,10 +198,10 @@
             setData(prev => {
               const book = prev.books.find(b => b.id === id);
               if (!book) return prev;
-
+              
               const siblings = prev.books.filter(b => b.folderId === book.folderId).sort((a, b) => a.order - b.order);
               const index = siblings.findIndex(b => b.id === id);
-
+              
               if (direction === 'up' && index > 0) {
                 const prevSibling = siblings[index - 1];
                 const newBooks = prev.books.map(b => {
@@ -273,7 +260,6 @@
             }
           }, [isOpen]);
 
-          // Esc tuşu ile modalı kapat
           useEffect(() => {
             if (!isOpen) return;
             const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -285,7 +271,7 @@
             if (showCamera) {
               const html5QrcodeScanner = new window.Html5Qrcode("reader");
               scannerRef.current = html5QrcodeScanner;
-
+              
               html5QrcodeScanner.start(
                 { facingMode: "environment" },
                 { fps: 10, qrbox: { width: 250, height: 150 } },
@@ -293,9 +279,9 @@
                   setQuery(decodedText);
                   setShowCamera(false);
                   html5QrcodeScanner.stop().catch(() => {});
-                  performSearch(decodedText);
+                  performSearch(decodedText); 
                 },
-                (errorMessage) => { /* Tarama denemeleri sırasındaki normal "bulunamadı" hataları yoksayılır */ }
+                (errorMessage) => { /* Ignore regular scanning scan-failures */ }
               ).catch(err => {
                 console.error("Kamera başlatılamadı:", err);
                 setShowCamera(false);
@@ -313,14 +299,14 @@
           const performSearch = async (searchQuery) => {
             const q = (searchQuery ?? query).trim();
             if (!q) return;
-
+            
             setLoading(true);
             setResults([]);
             setHasSearched(true);
 
             const cleanQuery = q.replace(/[- ]/g, '');
             const isIsbn = /^\d{10,13}$/.test(cleanQuery);
-
+            
             const fetchGoogle = async () => {
               const gQuery = isIsbn ? `isbn:${cleanQuery}` : `intitle:${q}`;
               const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(gQuery)}&maxResults=5`);
@@ -337,8 +323,6 @@
               return json.docs || [];
             };
 
-            // Her iki API de ayrı ayrı hataya karşı korunuyor; hangisi başarısız
-            // olduysa kullanıcıya bildiriliyor (artık sessizce yutulmuyor).
             const [googleResult, olResult] = await Promise.allSettled([fetchGoogle(), fetchOpenLibrary()]);
 
             const googleData = googleResult.status === 'fulfilled' ? googleResult.value : [];
@@ -358,9 +342,9 @@
               const vol = gItem.volumeInfo || {};
               const isbnObj = vol.industryIdentifiers?.find(i => i.type === 'ISBN_13' || i.type === 'ISBN_10');
               const isbn = isbnObj ? isbnObj.identifier : '';
-
-              const olMatch = olData.find(ol =>
-                (isbn && ol.isbn && ol.isbn.includes(isbn)) ||
+              
+              const olMatch = olData.find(ol => 
+                (isbn && ol.isbn && ol.isbn.includes(isbn)) || 
                 (ol.title && vol.title && ol.title.toLowerCase() === vol.title.toLowerCase())
               );
 
@@ -371,7 +355,7 @@
                 publisher: vol.publisher || olMatch?.publisher?.[0] || 'Yayınevi Belirtilmemiş',
                 pageCount: vol.pageCount || olMatch?.number_of_pages_median || 0,
                 year: vol.publishedDate?.substring(0, 4) || olMatch?.first_publish_year || '',
-                price: ''
+                price: '' 
               });
             });
 
@@ -409,21 +393,21 @@
                   <h2 className="text-lg font-semibold text-zinc-800">Yeni Kitap Ekle</h2>
                   <button onClick={onClose} className="p-2 hover:bg-zinc-200 rounded-full transition-colors"><X size={20} /></button>
                 </div>
-
+                
                 <div className="p-4 flex flex-col gap-3 shrink-0">
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-3 text-zinc-400" size={18} />
-                      <input
-                        type="text"
-                        placeholder="Kitap Adı veya ISBN..."
+                      <input 
+                        type="text" 
+                        placeholder="Kitap Adı veya ISBN..." 
                         className="w-full pl-9 pr-4 py-2.5 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-800 bg-zinc-50 text-sm"
                         value={query}
                         onChange={e => setQuery(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && performSearch()}
                       />
                     </div>
-                    <button
+                    <button 
                       onClick={() => setShowCamera(!showCamera)}
                       className={`p-2.5 rounded-xl border transition-colors flex items-center justify-center ${showCamera ? 'bg-red-50 text-red-600 border-red-200' : 'bg-zinc-100 text-zinc-600 border-zinc-200 hover:bg-zinc-200'}`}
                       title="Barkod Okut"
@@ -431,7 +415,7 @@
                       <Camera size={20} />
                     </button>
                   </div>
-                  <button
+                  <button 
                     onClick={() => performSearch()}
                     disabled={loading || !query.trim()}
                     className="w-full py-2.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 font-medium transition-colors disabled:opacity-50"
@@ -461,7 +445,7 @@
                             <p className="text-xs text-zinc-500 mb-0.5">{book.author} • {book.publisher}</p>
                             <p className="text-[10px] text-zinc-400">ISBN: {book.isbn || 'Yok'} | {book.pageCount} Sayfa</p>
                           </div>
-                          <button
+                          <button 
                             onClick={() => handleAdd(book)}
                             className="p-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl transition-colors shrink-0"
                           >
@@ -537,11 +521,11 @@
           return (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 z-40">
               <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh] sm:h-auto animate-in slide-in-from-bottom-10">
-
+                
                 <div className="p-4 border-b flex justify-between items-start bg-zinc-50 relative">
                   <div className="flex-1 pr-4">
                     {isEditing ? (
-                      <input
+                      <input 
                         name="title" value={formData.title} onChange={handleChange}
                         className="w-full font-bold text-lg border-b border-zinc-300 focus:outline-none focus:border-zinc-800 bg-transparent mb-1"
                       />
@@ -556,14 +540,14 @@
                 </div>
 
                 <div className="flex border-b divide-x divide-zinc-100 bg-white">
-                  <button
+                  <button 
                     onClick={toggleLibrary}
                     className={`flex-1 py-3 px-2 flex flex-col items-center gap-1.5 transition-colors ${book.inLibrary ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
                   >
                     <Library size={18} />
                     <span className="text-[10px] uppercase font-bold tracking-wider">Kütüphanemde</span>
                   </button>
-                  <button
+                  <button 
                     onClick={toggleRead}
                     className={`flex-1 py-3 px-2 flex flex-col items-center gap-1.5 transition-colors ${book.isRead ? 'bg-green-600 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}
                   >
@@ -602,7 +586,7 @@
 
                   {!isEditing && (
                     <div className="pt-2">
-                      <button
+                      <button 
                         onClick={() => setShowMove(!showMove)}
                         className="flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900 font-medium py-2"
                       >
@@ -610,14 +594,14 @@
                       </button>
                       {showMove && (
                         <div className="mt-2 p-2 border border-zinc-200 rounded-xl bg-white max-h-40 overflow-y-auto shadow-inner">
-                          <div
+                          <div 
                             onClick={() => { updateBook(book.id, { folderId: null }); setShowMove(false); }}
                             className={`p-2.5 text-sm rounded-lg cursor-pointer transition-colors ${book.folderId === null ? 'bg-zinc-100 font-semibold text-zinc-900' : 'hover:bg-zinc-50 text-zinc-600'}`}
                           >
                             / Ana Dizin
                           </div>
                           {folders.map(f => (
-                            <div
+                            <div 
                               key={f.id}
                               onClick={() => { updateBook(book.id, { folderId: f.id }); setShowMove(false); }}
                               className={`p-2.5 text-sm rounded-lg cursor-pointer transition-colors ${book.folderId === f.id ? 'bg-zinc-100 font-semibold text-zinc-900' : 'hover:bg-zinc-50 text-zinc-600'}`}
@@ -642,13 +626,13 @@
                     </div>
                   ) : isEditing ? (
                     <div className="flex gap-2">
-                      <button
+                      <button 
                         onClick={() => { setFormData(book); setIsEditing(false); }}
                         className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition-colors"
                       >
                         İptal
                       </button>
-                      <button
+                      <button 
                         onClick={handleSave}
                         className="flex-1 py-2.5 rounded-xl bg-zinc-900 text-white font-medium hover:bg-zinc-800 transition-colors"
                       >
@@ -657,14 +641,14 @@
                     </div>
                   ) : (
                     <div className="flex gap-2">
-                      <button
+                      <button 
                         onClick={() => setShowDeleteConfirm(true)}
                         className="p-2.5 rounded-xl border border-zinc-200 text-red-500 hover:bg-red-50 transition-colors shrink-0"
                         title="Kitabı Sil"
                       >
                         <Trash2 size={20} />
                       </button>
-                      <button
+                      <button 
                         onClick={() => setIsEditing(true)}
                         className="flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 bg-zinc-900 text-white font-medium hover:bg-zinc-800 transition-colors"
                       >
@@ -682,7 +666,7 @@
           const { reorderBook } = useArchive();
           return (
             <div className="group flex items-center justify-between p-3 mb-1.5 bg-white border border-zinc-100 rounded-xl shadow-sm hover:border-zinc-300 transition-all ml-2 sm:ml-4">
-              <div
+              <div 
                 className="flex-1 cursor-pointer flex items-center gap-3 overflow-hidden"
                 onClick={() => onOpen(book.id)}
               >
@@ -742,7 +726,7 @@
                     <span className="font-semibold text-zinc-700 text-sm truncate">{folder.name}</span>
                     <span className="text-[10px] text-zinc-500 bg-zinc-100 border border-zinc-200 px-1.5 py-0.5 rounded-full shrink-0">{childBooks.length}</span>
                   </div>
-
+                  
                   {!isLibraryView && (
                     <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       <button onClick={() => setShowDelConfirm(true)} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Klasörü Sil"><Trash2 size={14} /></button>
@@ -988,7 +972,7 @@
                       { id: 'library', icon: Library, label: 'Kütüphanem' },
                       { id: 'stats', icon: BarChart3, label: 'Verilerim' }
                     ].map(tab => (
-                      <button
+                      <button 
                         key={tab.id} onClick={() => setActiveTab(tab.id)}
                         className={`flex flex-col items-center p-2 rounded-xl transition-all w-20 ${activeTab === tab.id ? 'text-zinc-900' : 'text-zinc-400 hover:text-zinc-600'}`}
                       >
@@ -1003,8 +987,6 @@
           );
         };
 
-        // React Error Boundary: beklenmedik bir hata tüm uygulamayı beyaz ekrana
-        // düşürmesin diye eklendi. Kullanıcıya en azından anlaşılır bir mesaj gösterir.
         class ErrorBoundary extends React.Component {
           constructor(props) {
             super(props);
@@ -1044,23 +1026,6 @@
         root.render(<App />);
     </script>
 
-    <!--
-      SIRALI SCRIPT YÜKLEYİCİ (BEYAZ EKRAN ÇÖZÜMÜ)
-
-      Yukarıdaki uygulama kodu type="text/plain" olarak işaretlendi, bu yüzden
-      tarayıcı onu otomatik ÇALIŞTIRMAZ, sadece metin olarak sayfada tutar.
-      Bunun sebebi: normal <script src="..."> etiketleri teorik olarak sırayla
-      yüklenip çalışsa da, bazı ağlarda/CDN yansımalarında veya kurumsal
-      proxy'lerde CORS başlıkları eksik gelebiliyor ve bir script SESSİZCE
-      çalışmadan geçiliyor. Sonrasında ona bağımlı olan bir sonraki script
-      (örn. lucide-react, React'a ihtiyaç duyar) çöküyor ve React ağacı hiç
-      kurulmadığı için ekran bembeyaz kalıyor — konsolda hata olsa bile
-      kullanıcı bunu görmüyor.
-
-      Bu yükleyici her kütüphaneyi TEK TEK, bir öncekinin başarıyla yüklendiğini
-      garanti ettikten sonra yükler. Herhangi biri başarısız olursa hem konsola
-      hem de doğrudan #root içine kullanıcının göreceği açık bir hata mesajı yazar.
-    -->
     <script>
         function loadScript(src) {
             return new Promise((resolve, reject) => {
@@ -1086,8 +1051,7 @@
                         <code style="font-size:11px; word-break:break-all;">${failedUrl}</code>
                     </p>
                     <p style="margin:0; color:#a1a1aa; font-size:12px; max-width:320px;">
-                        İnternet bağlantınızı, reklam engelleyicinizi (adblock) veya
-                        ağ/CSP kısıtlamalarını kontrol edip sayfayı yenileyin.
+                        İnternet bağlantınızı veya reklam engelleyicinizi kontrol edip sayfayı yenileyin.
                     </p>
                     <button onclick="window.location.reload()" style="margin-top:8px; padding:8px 16px; background:#18181b; color:white; border:none; border-radius:10px; font-size:13px; cursor:pointer;">
                         Sayfayı Yenile
@@ -1097,9 +1061,6 @@
 
         async function bootstrap() {
             try {
-                // Her kütüphane bir öncekinin TAM olarak yüklenip global
-                // değişkenini (window.React, window.ReactDOM, ...) oluşturduğundan
-                // emin olunduktan sonra yükleniyor.
                 await loadScript('https://unpkg.com/react@18.2.0/umd/react.production.min.js');
                 if (!window.React) throw new Error('React yüklendi ama window.React oluşmadı');
 
@@ -1107,16 +1068,15 @@
                 if (!window.ReactDOM) throw new Error('ReactDOM yüklendi ama window.ReactDOM oluşmadı');
 
                 await loadScript('https://unpkg.com/lucide-react@0.292.0/dist/umd/lucide-react.min.js');
-                if (!window.LucideReact) throw new Error('lucide-react yüklendi ama window.LucideReact oluşmadı');
+                // FIXED THE CASE ISSUE HERE
+                if (!window.lucideReact) throw new Error('lucide-react yüklendi ama window.lucideReact oluşmadı');
 
-                await loadScript('https://unpkg.com/html5-qrcode');
+                await loadScript('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js');
                 if (!window.Html5Qrcode) throw new Error('html5-qrcode yüklendi ama window.Html5Qrcode oluşmadı');
 
-                await loadScript('https://unpkg.com/@babel/standalone/babel.min.js');
+                await loadScript('https://unpkg.com/@babel/standalone@7.23.6/babel.min.js');
                 if (!window.Babel) throw new Error('Babel yüklendi ama window.Babel oluşmadı');
 
-                // Tüm bağımlılıklar hazır: şimdi uygulama kaynağını al, JSX'i
-                // derle ve gerçek bir <script> olarak sayfaya ekleyip çalıştır.
                 const source = document.getElementById('app-source').textContent;
                 const compiled = window.Babel.transform(source, { presets: ['react'] }).code;
 
