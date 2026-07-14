@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Archive - Kütüphane</title>
     
-    <!-- PWA Desteği için (İsteğe bağlı) -->
+    <!-- PWA Desteği için -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#18181b">
 
@@ -175,8 +175,16 @@
                 setLoading(true);
                 try {
                     const isIsbn = /^\d+$/.test(query.replace(/[- ]/g, ''));
-                    const q = isIsbn ? `isbn:${query.replace(/[- ]/g, '')}` : `intitle:${query}`;
-                    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=10&key=${API_KEY}`);
+                    // YENİ GÜNCELLEME: URL uyumlu encode işlemi yapıyoruz ve aramayı intitle yerine genel q formatında arıyoruz.
+                    const q = isIsbn ? `isbn:${query.replace(/[- ]/g, '')}` : encodeURIComponent(query.trim());
+                    
+                    let res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=10&key=${API_KEY}`);
+                    
+                    // EĞER API KOTAYA TAKILIRSA VEYA HATA VERİRSE ANAHTARSIZ TEKRAR DENE
+                    if (!res.ok) {
+                        res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=10`);
+                    }
+                    
                     const data = await res.json();
                     
                     if (data.items) {
