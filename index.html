@@ -29,7 +29,7 @@
           Library, List, BarChart3, Plus, Search, ChevronDown, ChevronRight,
           ArrowUp, ArrowDown, BookOpen, Edit2, Check, X, FolderPlus, FileText, MoveRight,
           Camera, Trash2, AlertCircle, WifiOff
-        } = lucideReact;
+        } = window.LucideReact;
 
         const STORAGE_KEY = 'archive_app_data_v3';
 
@@ -1107,7 +1107,7 @@
                 if (!window.ReactDOM) throw new Error('ReactDOM yüklendi ama window.ReactDOM oluşmadı');
 
                 await loadScript('https://unpkg.com/lucide-react@0.292.0/dist/umd/lucide-react.min.js');
-                if (!window.lucideReact) throw new Error('lucide-react yüklendi ama window.lucideReact oluşmadı');
+                if (!window.LucideReact) throw new Error('lucide-react yüklendi ama window.LucideReact oluşmadı');
 
                 await loadScript('https://unpkg.com/html5-qrcode');
                 if (!window.Html5Qrcode) throw new Error('html5-qrcode yüklendi ama window.Html5Qrcode oluşmadı');
