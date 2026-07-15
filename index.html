@@ -65,6 +65,7 @@
         const Check = pickIcon('Check');
         const X = pickIcon('X');
         const FolderPlus = pickIcon('FolderPlus');
+        const Folder = pickIcon('Folder');
         const FileText = pickIcon('FileText');
         const MoveRight = pickIcon('MoveRight');
         const Camera = pickIcon('Camera');
@@ -850,11 +851,7 @@
                   )}
                 </div>
               </div>
-            </div>
-          );
-        };
-
-        const BookCard = ({ book, onOpen, showIndicator = false, draggable = false }) => {
+        const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, folderPath = null }) => {
           const dnd = useDragDrop();
           const isDragged = draggable && dnd && dnd.draggedId === book.id;
           const over = draggable && dnd && dnd.overTarget && dnd.overTarget.type === 'book' && dnd.overTarget.id === book.id ? dnd.overTarget.placement : null;
@@ -876,9 +873,13 @@
                     <BookOpen size={16} />
                   )}
                 </div>
-                <div className="truncate">
+                <div className="truncate flex-1">
                   <h4 className="font-semibold text-zinc-800 text-sm truncate">{book.title}</h4>
-                  <p className="text-[11px] text-zinc-500 truncate">{book.publisher || 'Yayınevi Yok'}</p>
+                  {folderPath ? (
+                     <p className="text-[10px] font-medium text-zinc-400 truncate flex items-center gap-1 mt-0.5"><Folder size={10} /> {folderPath}</p>
+                  ) : (
+                     <p className="text-[11px] text-zinc-500 truncate">{book.publisher || 'Yayınevi Yok'}</p>
+                  )}
                 </div>
                 {showIndicator && book.inLibrary && (
                   <span className="ml-auto w-2 h-2 rounded-full bg-zinc-900 shrink-0" title="Kütüphanemde"></span>
@@ -999,6 +1000,9 @@
           const [detailModalOpen, setDetailModalOpen] = useState(false);
           const [activeBookId, setActiveBookId] = useState(null);
 
+          const [isSearching, setIsSearching] = useState(false);
+          const [searchTerm, setSearchTerm] = useState('');
+
           const rootFolders = folders.filter(f => f.parentId === null).sort((a, b) => a.order - b.order);
           const rootBooks = books.filter(b => b.folderId === null).sort((a, b) => a.order - b.order);
 
@@ -1011,37 +1015,94 @@
             }
           };
 
+          const filteredBooks = useMemo(() => {
+            if (!searchTerm.trim()) return [];
+            const term = normalize(searchTerm);
+            return books.filter(b => normalize(b.title).includes(term) || normalize(b.author).includes(term));
+          }, [searchTerm, books]);
+
+          const getFolderPath = (folderId) => {
+              if (!folderId) return 'Ana Dizin';
+              let current = folders.find(f => f.id === folderId);
+              let path = [];
+              while(current) {
+                  path.unshift(current.name);
+                  current = folders.find(f => f.id === current.parentId);
+              }
+              return path.join(' / ') || 'Ana Dizin';
+          };
+
           return (
             <div className="h-full flex flex-col bg-white">
-              <div className="p-4 pt-6 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 flex justify-between items-center shadow-sm">
-                <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Listelerim</h1>
-                <div className="flex gap-2">
-                  <button onClick={() => setIsAddingRoot(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Klasör Ekle"><FolderPlus size={18} /></button>
-                  <button onClick={() => { setActiveFolderForAdd(null); setSearchModalOpen(true); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-colors text-sm font-medium"><Plus size={16} /> Ekle</button>
-                </div>
+              <div className="p-4 pt-6 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 shadow-sm min-h-[70px] flex items-center">
+                {isSearching ? (
+                  <div className="flex gap-2 w-full items-center animate-in fade-in slide-in-from-right-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-2.5 text-zinc-400" size={18} />
+                      <input 
+                        autoFocus 
+                        type="text" 
+                        placeholder="Kitap veya yazar ara..." 
+                        className="w-full pl-9 pr-4 py-2 bg-zinc-100 border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 text-sm"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <button onClick={() => { setIsSearching(false); setSearchTerm(''); }} className="text-sm font-medium text-zinc-600 px-2 hover:text-zinc-900">İptal</button>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center w-full animate-in fade-in">
+                    <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Listelerim</h1>
+                    <div className="flex gap-2">
+                      <button onClick={() => setIsSearching(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Kitaplarda Ara"><Search size={18} /></button>
+                      <button onClick={() => setIsAddingRoot(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Klasör Ekle"><FolderPlus size={18} /></button>
+                      <button onClick={() => { setActiveFolderForAdd(null); setSearchModalOpen(true); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-colors text-sm font-medium"><Plus size={16} /> Ekle</button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 pb-24">
-                {isAddingRoot && (
-                  <form onSubmit={handleAddRootFolder} className="mb-4 flex items-center gap-2 p-2 bg-zinc-50 rounded-xl border border-zinc-200 shadow-inner">
-                    <input autoFocus type="text" placeholder="Yeni liste adı..." value={newFolderName} onChange={e => setNewFolderName(e.target.value)} className="flex-1 bg-transparent px-2 focus:outline-none text-zinc-800 text-sm" />
-                    <button type="submit" className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-600"><Check size={16} /></button>
-                    <button type="button" onClick={() => setIsAddingRoot(false)} className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-400"><X size={16} /></button>
-                  </form>
-                )}
-
-                {books.length === 0 && folders.length === 0 && !isAddingRoot ? (
-                  <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
-                    <FileText size={48} className="opacity-20" />
-                    <p className="text-center text-sm font-medium">Klasör veya kitap ekleyerek başlayın.</p>
-                  </div>
+                {isSearching ? (
+                  searchTerm.trim() === '' ? (
+                    <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+                      <Search size={48} className="opacity-20" />
+                      <p className="text-center text-sm font-medium">Aramak için yazmaya başlayın.</p>
+                    </div>
+                  ) : filteredBooks.length > 0 ? (
+                    <div className="space-y-1">
+                      {filteredBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} showIndicator={true} folderPath={getFolderPath(book.folderId)} />)}
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+                      <FileText size={48} className="opacity-20" />
+                      <p className="text-center text-sm font-medium">Sonuç bulunamadı.</p>
+                    </div>
+                  )
                 ) : (
-                  <DragDropProvider onDrop={(bookId, targetFolderId, anchorId, placement) => moveBookToPosition(bookId, targetFolderId, anchorId, placement)}>
-                    <RootDropZone>
-                      {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} showIndicator={true} draggable={true} />)}
-                      {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={folders} allBooks={books} onAddBook={(fid) => { setActiveFolderForAdd(fid); setSearchModalOpen(true); }} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} draggable={true} />)}
-                    </RootDropZone>
-                  </DragDropProvider>
+                  <>
+                    {isAddingRoot && (
+                      <form onSubmit={handleAddRootFolder} className="mb-4 flex items-center gap-2 p-2 bg-zinc-50 rounded-xl border border-zinc-200 shadow-inner">
+                        <input autoFocus type="text" placeholder="Yeni liste adı..." value={newFolderName} onChange={e => setNewFolderName(e.target.value)} className="flex-1 bg-transparent px-2 focus:outline-none text-zinc-800 text-sm" />
+                        <button type="submit" className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-600"><Check size={16} /></button>
+                        <button type="button" onClick={() => setIsAddingRoot(false)} className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-400"><X size={16} /></button>
+                      </form>
+                    )}
+
+                    {books.length === 0 && folders.length === 0 && !isAddingRoot ? (
+                      <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+                        <FileText size={48} className="opacity-20" />
+                        <p className="text-center text-sm font-medium">Klasör veya kitap ekleyerek başlayın.</p>
+                      </div>
+                    ) : (
+                      <DragDropProvider onDrop={(bookId, targetFolderId, anchorId, placement) => moveBookToPosition(bookId, targetFolderId, anchorId, placement)}>
+                        <RootDropZone>
+                          {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} showIndicator={true} draggable={true} />)}
+                          {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={folders} allBooks={books} onAddBook={(fid) => { setActiveFolderForAdd(fid); setSearchModalOpen(true); }} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} draggable={true} />)}
+                        </RootDropZone>
+                      </DragDropProvider>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -1055,6 +1116,9 @@
           const { folders, books } = useArchive();
           const [detailModalOpen, setDetailModalOpen] = useState(false);
           const [activeBookId, setActiveBookId] = useState(null);
+
+          const [isSearching, setIsSearching] = useState(false);
+          const [searchTerm, setSearchTerm] = useState('');
 
           const libraryBooks = useMemo(() => books.filter(b => b.inLibrary), [books]);
           const visibleFolderIds = useMemo(() => {
@@ -1073,24 +1137,81 @@
           const rootFolders = visibleFolders.filter(f => f.parentId === null).sort((a, b) => a.order - b.order);
           const rootBooks = libraryBooks.filter(b => b.folderId === null).sort((a, b) => a.order - b.order);
 
+          const filteredBooks = useMemo(() => {
+            if (!searchTerm.trim()) return [];
+            const term = normalize(searchTerm);
+            return libraryBooks.filter(b => normalize(b.title).includes(term) || normalize(b.author).includes(term));
+          }, [searchTerm, libraryBooks]);
+
+          const getFolderPath = (folderId) => {
+              if (!folderId) return 'Ana Dizin';
+              let current = folders.find(f => f.id === folderId);
+              let path = [];
+              while(current) {
+                  path.unshift(current.name);
+                  current = folders.find(f => f.id === current.parentId);
+              }
+              return path.join(' / ') || 'Ana Dizin';
+          };
+
           return (
             <div className="h-full flex flex-col bg-white">
-              <div className="p-4 pt-6 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 shadow-sm">
-                <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Kütüphanem</h1>
-                <p className="text-[11px] text-zinc-500 mt-1 uppercase font-semibold tracking-wider">Sahip Olduğunuz Kitaplar</p>
+              <div className="p-4 pt-6 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 shadow-sm min-h-[70px] flex items-center">
+                {isSearching ? (
+                  <div className="flex gap-2 w-full items-center animate-in fade-in slide-in-from-right-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-2.5 text-zinc-400" size={18} />
+                      <input 
+                        autoFocus 
+                        type="text" 
+                        placeholder="Kütüphanede ara..." 
+                        className="w-full pl-9 pr-4 py-2 bg-zinc-100 border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 text-sm"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <button onClick={() => { setIsSearching(false); setSearchTerm(''); }} className="text-sm font-medium text-zinc-600 px-2 hover:text-zinc-900">İptal</button>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center w-full animate-in fade-in">
+                    <div>
+                      <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Kütüphanem</h1>
+                      <p className="text-[11px] text-zinc-500 mt-0.5 uppercase font-semibold tracking-wider">Sahip Olduğunuz Kitaplar</p>
+                    </div>
+                    <button onClick={() => setIsSearching(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Kütüphanede Ara"><Search size={18} /></button>
+                  </div>
+                )}
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 pb-24">
-                {libraryBooks.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
-                    <Library size={48} className="opacity-20" />
-                    <p className="text-center text-sm font-medium px-4">Kütüphanenizde kitap yok.<br/><span className="text-xs font-normal">Listelerinizdeki kitapları "Kütüphanemde" olarak işaretleyin.</span></p>
-                  </div>
+                {isSearching ? (
+                  searchTerm.trim() === '' ? (
+                    <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+                      <Search size={48} className="opacity-20" />
+                      <p className="text-center text-sm font-medium">Kütüphanenizde aramak için yazın.</p>
+                    </div>
+                  ) : filteredBooks.length > 0 ? (
+                    <div className="space-y-1">
+                      {filteredBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} isLibraryView={true} folderPath={getFolderPath(book.folderId)} />)}
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+                      <FileText size={48} className="opacity-20" />
+                      <p className="text-center text-sm font-medium">Sonuç bulunamadı.</p>
+                    </div>
+                  )
                 ) : (
-                  <div className="space-y-1">
-                     {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} isLibraryView={true} />)}
-                    {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={visibleFolders} allBooks={libraryBooks} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} isLibraryView={true} />)}
-                  </div>
+                  libraryBooks.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+                      <Library size={48} className="opacity-20" />
+                      <p className="text-center text-sm font-medium px-4">Kütüphanenizde kitap yok.<br/><span className="text-xs font-normal">Listelerinizdeki kitapları "Kütüphanemde" olarak işaretleyin.</span></p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                       {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} isLibraryView={true} />)}
+                      {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={visibleFolders} allBooks={libraryBooks} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} isLibraryView={true} />)}
+                    </div>
+                  )
                 )}
               </div>
               <BookDetailModal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} bookId={activeBookId} />
