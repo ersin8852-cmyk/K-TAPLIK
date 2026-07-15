@@ -2,12 +2,13 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Archive Kütüphanesi</title>
 
     <!-- PWA Bağlantıları Başlangıcı -->
     <link rel="manifest" href="./manifest.json">
-    <meta name="theme-color" content="#18181b">
+    <meta name="theme-color" content="#ffffff" media="(max-width: 639px)">
+    <meta name="theme-color" content="#18181b" media="(min-width: 640px)">
     <link rel="apple-touch-icon" href="https://placehold.co/192x192/18181b/ffffff?text=A">
     <!-- PWA Bağlantıları Bitişi -->
 
@@ -35,8 +36,8 @@
         html { scroll-behavior: smooth; }
     </style>
 </head>
-<body class="bg-zinc-100 flex justify-center text-zinc-900">
-    <div id="root" class="w-full h-full max-w-md bg-white shadow-2xl relative overflow-hidden flex flex-col h-screen"></div>
+<body class="bg-white sm:bg-zinc-100 flex justify-center text-zinc-900 overflow-x-hidden">
+    <div id="root" class="w-full h-full sm:max-w-md bg-white sm:shadow-2xl relative overflow-hidden flex flex-col h-[100dvh]"></div>
 
     <script type="text/plain" id="app-source">
         const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
@@ -1150,8 +1151,8 @@
         const AppLayout = () => {
           const [activeTab, setActiveTab] = useState('lists');
           return (
-            <div className="flex justify-center bg-zinc-100 min-h-screen">
-              <div className="w-full max-w-md bg-white h-screen flex flex-col relative shadow-xl overflow-hidden">
+            <div className="flex justify-center bg-white sm:bg-zinc-100 min-h-[100dvh]">
+              <div className="w-full sm:max-w-md bg-white h-[100dvh] flex flex-col relative sm:shadow-xl overflow-hidden">
                 <div className="flex-1 overflow-hidden">
                   {activeTab === 'lists' && <ListsView />}
                   {activeTab === 'library' && <LibraryView />}
@@ -1193,7 +1194,7 @@
           render() {
             if (this.state.hasError) {
               return (
-                <div className="h-screen flex flex-col items-center justify-center bg-white text-center p-6 gap-3">
+                <div className="h-[100dvh] flex flex-col items-center justify-center bg-white text-center p-6 gap-3">
                   <AlertCircle size={40} className="text-red-500" />
                   <h2 className="font-bold text-zinc-800">Bir şeyler ters gitti</h2>
                   <p className="text-sm text-zinc-500">Sayfayı yenilemeyi deneyin. Verileriniz tarayıcınızda saklı kalmaya devam eder.</p>
@@ -1235,7 +1236,7 @@
         function showFatalError(failedUrl) {
             const root = document.getElementById('root');
             root.innerHTML = `
-                <div style="height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; font-family:sans-serif; gap:10px;">
+                <div style="height:100dvh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; font-family:sans-serif; gap:10px;">
                     <div style="font-size:32px;">⚠️</div>
                     <h2 style="margin:0; color:#18181b; font-size:16px;">Uygulama yüklenemedi</h2>
                     <p style="margin:0; color:#71717a; font-size:13px; max-width:320px;">
@@ -1298,5 +1299,3 @@
   }
 </script>
 </html>
-
-```
