@@ -851,6 +851,10 @@
                   )}
                 </div>
               </div>
+            </div>
+          );
+        };
+
         const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, folderPath = null }) => {
           const dnd = useDragDrop();
           const isDragged = draggable && dnd && dnd.draggedId === book.id;
