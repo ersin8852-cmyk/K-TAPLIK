@@ -61,6 +61,7 @@
         const Trash2 = pickIcon('Trash2');
         const AlertCircle = pickIcon('AlertCircle');
         const WifiOff = pickIcon('WifiOff');
+        const GripVertical = pickIcon('GripVertical');
 
         const STORAGE_KEY = 'archive_app_data_v3';
 
@@ -226,45 +227,35 @@
             showToast('Kitap silindi.');
           };
 
-          const moveBook = (bookId, newFolderId) => {
+          // --- SÜRÜKLE-BIRAK: TEK FONKSİYONLA HEM TAŞIMA HEM SIRALAMA ---
+          // Bir kitabı istenen klasöre (targetFolderId, kök için null) ve o
+          // klasördeki istenen konuma (anchorId'nin öncesine/sonrasına, ya da
+          // anchorId verilmezse en sona) yerleştirir. Hem "kitabı klasöre
+          // sürükle" hem de "kitabın sırasını değiştir" ihtiyacını tek bir
+          // güvenilir yeniden-sıralama mantığıyla karşılar.
+          const moveBookToPosition = (bookId, targetFolderId, anchorId = null, placement = 'end') => {
             setData(prev => {
-              const siblings = prev.books.filter(b => b.folderId === newFolderId);
-              const newOrder = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
-              return {
-                ...prev,
-                books: prev.books.map(b => b.id === bookId ? { ...b, folderId: newFolderId, order: newOrder } : b)
-              };
-            });
-            showToast('Kitap taşındı.');
-          };
-
-          const reorderBook = (id, direction) => {
-            setData(prev => {
-              const book = prev.books.find(b => b.id === id);
+              const book = prev.books.find(b => b.id === bookId);
               if (!book) return prev;
 
-              const siblings = prev.books.filter(b => b.folderId === book.folderId).sort((a, b) => a.order - b.order);
-              const index = siblings.findIndex(b => b.id === id);
+              const siblings = prev.books
+                .filter(b => b.folderId === targetFolderId && b.id !== bookId)
+                .sort((a, b) => a.order - b.order);
 
-              if (direction === 'up' && index > 0) {
-                const prevSibling = siblings[index - 1];
-                const newBooks = prev.books.map(b => {
-                  if (b.id === id) return { ...b, order: prevSibling.order };
-                  if (b.id === prevSibling.id) return { ...b, order: book.order };
-                  return b;
-                });
-                return { ...prev, books: newBooks };
+              let insertIndex = siblings.length;
+              if (anchorId) {
+                const idx = siblings.findIndex(b => b.id === anchorId);
+                if (idx !== -1) insertIndex = placement === 'after' ? idx + 1 : idx;
               }
-              if (direction === 'down' && index < siblings.length - 1) {
-                const nextSibling = siblings[index + 1];
-                const newBooks = prev.books.map(b => {
-                  if (b.id === id) return { ...b, order: nextSibling.order };
-                  if (b.id === nextSibling.id) return { ...b, order: book.order };
-                  return b;
-                });
-                return { ...prev, books: newBooks };
-              }
-              return prev;
+
+              siblings.splice(insertIndex, 0, { ...book, folderId: targetFolderId });
+              const reordered = siblings.map((b, i) => ({ ...b, order: i }));
+              const reorderedMap = new Map(reordered.map(b => [b.id, b]));
+
+              return {
+                ...prev,
+                books: prev.books.map(b => reorderedMap.has(b.id) ? reorderedMap.get(b.id) : b)
+              };
             });
           };
 
@@ -272,7 +263,7 @@
             <ArchiveContext.Provider value={{
               books: data.books, folders: data.folders,
               addFolder, deleteFolder, reorderFolder,
-              addBook, updateBook, deleteBook, moveBook, reorderBook,
+              addBook, updateBook, deleteBook, moveBookToPosition,
               showToast
             }}>
               {children}
@@ -283,6 +274,78 @@
                 </div>
               )}
             </ArchiveContext.Provider>
+          );
+        };
+
+        // --- SÜRÜKLE-BIRAK SİSTEMİ ---
+        // Fare ile "mouse events", dokunmatikte "touch events" yerine tek bir
+        // API olan Pointer Events kullanıyoruz — hem masaüstünde hem mobilde
+        // (iOS Safari dahil) çalışır. Sürüklenebilir tutamaç (grip ikonu)
+        // üzerinde setPointerCapture çağırarak parmak/imleç nereye giderse
+        // gitsin pointermove/pointerup olaylarının hep bu tutamaca gelmesini
+        // sağlıyoruz; böylece window'a event dinleyici eklemeye gerek kalmıyor.
+        const DragContext = createContext(null);
+        const useDragDrop = () => useContext(DragContext);
+
+        const DragDropProvider = ({ children, onDrop }) => {
+          const { books } = useArchive();
+          const [draggedId, setDraggedId] = useState(null);
+          const [overTarget, setOverTarget] = useState(null);
+          const [ghostPos, setGhostPos] = useState({ x: 0, y: 0 });
+
+          const startDrag = (bookId, e) => {
+            setDraggedId(bookId);
+            setGhostPos({ x: e.clientX, y: e.clientY });
+            setOverTarget(null);
+          };
+
+          const updateDrag = (e) => {
+            setGhostPos({ x: e.clientX, y: e.clientY });
+            const el = document.elementFromPoint(e.clientX, e.clientY);
+            const rowEl = el && el.closest('[data-folder-target], [data-book-target]');
+            if (!rowEl) { setOverTarget(null); return; }
+
+            if (rowEl.dataset.bookTarget) {
+              if (rowEl.dataset.bookTarget === draggedId) { setOverTarget(null); return; }
+              const rect = rowEl.getBoundingClientRect();
+              const placement = (e.clientY - rect.top) < rect.height / 2 ? 'before' : 'after';
+              setOverTarget({ type: 'book', id: rowEl.dataset.bookTarget, folderId: rowEl.dataset.bookTargetFolder, placement });
+            } else if (rowEl.dataset.folderTarget) {
+              setOverTarget({ type: 'folder', id: rowEl.dataset.folderTarget });
+            }
+          };
+
+          const endDrag = () => {
+            if (draggedId && overTarget) {
+              if (overTarget.type === 'folder') {
+                const targetFolderId = overTarget.id === 'root' ? null : overTarget.id;
+                onDrop(draggedId, targetFolderId, null, 'end');
+              } else {
+                const targetFolderId = overTarget.folderId === 'root' ? null : overTarget.folderId;
+                onDrop(draggedId, targetFolderId, overTarget.id, overTarget.placement);
+              }
+            }
+            setDraggedId(null);
+            setOverTarget(null);
+          };
+
+          const cancelDrag = () => { setDraggedId(null); setOverTarget(null); };
+
+          const draggedBook = draggedId ? books.find(b => b.id === draggedId) : null;
+
+          return (
+            <DragContext.Provider value={{ draggedId, overTarget, startDrag, updateDrag, endDrag, cancelDrag }}>
+              {children}
+              {draggedId && draggedBook && (
+                <div
+                  className="fixed z-[100] pointer-events-none bg-zinc-900 text-white text-xs font-medium px-3 py-2 rounded-lg shadow-2xl flex items-center gap-2 max-w-[220px]"
+                  style={{ left: ghostPos.x, top: ghostPos.y, transform: 'translate(-50%, -120%)' }}
+                >
+                  <BookOpen size={12} className="shrink-0" />
+                  <span className="truncate">{draggedBook.title}</span>
+                </div>
+              )}
+            </DragContext.Provider>
           );
         };
 
@@ -581,7 +644,7 @@
         };
 
         const BookDetailModal = ({ bookId, isOpen, onClose }) => {
-          const { books, updateBook, deleteBook, folders, showToast } = useArchive();
+          const { books, updateBook, deleteBook, folders, showToast, moveBookToPosition } = useArchive();
           const book = books.find(b => b.id === bookId);
           const [isEditing, setIsEditing] = useState(false);
           const [formData, setFormData] = useState({});
@@ -707,7 +770,7 @@
                       {showMove && (
                         <div className="mt-2 p-2 border border-zinc-200 rounded-xl bg-white max-h-40 overflow-y-auto shadow-inner">
                           <div
-                            onClick={() => { updateBook(book.id, { folderId: null }); setShowMove(false); }}
+                            onClick={() => { moveBookToPosition(book.id, null); setShowMove(false); }}
                             className={`p-2.5 text-sm rounded-lg cursor-pointer transition-colors ${book.folderId === null ? 'bg-zinc-100 font-semibold text-zinc-900' : 'hover:bg-zinc-50 text-zinc-600'}`}
                           >
                             / Ana Dizin
@@ -715,7 +778,7 @@
                           {folders.map(f => (
                             <div
                               key={f.id}
-                              onClick={() => { updateBook(book.id, { folderId: f.id }); setShowMove(false); }}
+                              onClick={() => { moveBookToPosition(book.id, f.id); setShowMove(false); }}
                               className={`p-2.5 text-sm rounded-lg cursor-pointer transition-colors ${book.folderId === f.id ? 'bg-zinc-100 font-semibold text-zinc-900' : 'hover:bg-zinc-50 text-zinc-600'}`}
                             >
                               {f.name}
@@ -774,10 +837,17 @@
           );
         };
 
-        const BookCard = ({ book, onOpen, showIndicator = false }) => {
-          const { reorderBook } = useArchive();
+        const BookCard = ({ book, onOpen, showIndicator = false, draggable = false }) => {
+          const dnd = useDragDrop();
+          const isDragged = draggable && dnd && dnd.draggedId === book.id;
+          const over = draggable && dnd && dnd.overTarget && dnd.overTarget.type === 'book' && dnd.overTarget.id === book.id ? dnd.overTarget.placement : null;
+
           return (
-            <div className="group flex items-center justify-between p-3 mb-1.5 bg-white border border-zinc-100 rounded-xl shadow-sm hover:border-zinc-300 transition-all ml-2 sm:ml-4">
+            <div
+              data-book-target={draggable ? book.id : undefined}
+              data-book-target-folder={draggable ? (book.folderId === null ? 'root' : book.folderId) : undefined}
+              className={`group flex items-center justify-between p-3 mb-1.5 bg-white border rounded-xl shadow-sm hover:border-zinc-300 transition-all ml-2 sm:ml-4 ${isDragged ? 'opacity-30' : 'border-zinc-100'} ${over === 'before' ? 'border-t-2 border-t-zinc-900' : ''} ${over === 'after' ? 'border-b-2 border-b-zinc-900' : ''}`}
+            >
               <div
                 className="flex-1 cursor-pointer flex items-center gap-3 overflow-hidden"
                 onClick={() => onOpen(book.id)}
@@ -797,16 +867,27 @@
                   <span className="ml-auto w-2 h-2 rounded-full bg-zinc-900 shrink-0" title="Kütüphanemde"></span>
                 )}
               </div>
-              <div className="flex flex-col gap-1 opacity-100 sm:opacity-20 group-hover:opacity-100 transition-opacity ml-2 shrink-0">
-                <button onClick={() => reorderBook(book.id, 'up')} className="p-1 bg-zinc-50 border border-zinc-100 rounded hover:bg-zinc-200"><ArrowUp size={12} className="text-zinc-500"/></button>
-                <button onClick={() => reorderBook(book.id, 'down')} className="p-1 bg-zinc-50 border border-zinc-100 rounded hover:bg-zinc-200"><ArrowDown size={12} className="text-zinc-500"/></button>
-              </div>
+              {draggable && (
+                <span
+                  className="p-2 -mr-1 text-zinc-300 hover:text-zinc-600 cursor-grab active:cursor-grabbing touch-none shrink-0"
+                  title="Sürükle"
+                  onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dnd.startDrag(book.id, e); }}
+                  onPointerMove={(e) => { if (dnd.draggedId === book.id) { e.stopPropagation(); dnd.updateDrag(e); } }}
+                  onPointerUp={(e) => { if (dnd.draggedId === book.id) { e.stopPropagation(); dnd.endDrag(); } }}
+                  onPointerCancel={() => dnd.cancelDrag()}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <GripVertical size={16} />
+                </span>
+              )}
             </div>
           );
         };
 
-        const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpenBook, isLibraryView = false }) => {
+        const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpenBook, isLibraryView = false, draggable = false }) => {
           const { addFolder, reorderFolder, deleteFolder } = useArchive();
+          const dnd = useDragDrop();
+          const isDropTarget = draggable && dnd && dnd.overTarget && dnd.overTarget.type === 'folder' && dnd.overTarget.id === folder.id;
           const [isOpen, setIsOpen] = useState(true);
           const [isAddingFolder, setIsAddingFolder] = useState(false);
           const [newFolderName, setNewFolderName] = useState('');
@@ -836,7 +917,10 @@
                     </div>
                  </div>
               ) : (
-                <div className="group flex items-center justify-between p-2 rounded-xl hover:bg-zinc-50 transition-colors border border-transparent hover:border-zinc-100">
+                <div
+                  data-folder-target={draggable ? folder.id : undefined}
+                  className={`group flex items-center justify-between p-2 rounded-xl transition-colors border ${isDropTarget ? 'bg-zinc-900/5 border-dashed border-zinc-900' : 'border-transparent hover:bg-zinc-50 hover:border-zinc-100'}`}
+                >
                   <div className="flex items-center gap-2 cursor-pointer flex-1 overflow-hidden" onClick={() => setIsOpen(!isOpen)}>
                     {isOpen ? <ChevronDown size={18} className="text-zinc-400 shrink-0" /> : <ChevronRight size={18} className="text-zinc-400 shrink-0" />}
                     <span className="font-semibold text-zinc-700 text-sm truncate">{folder.name}</span>
@@ -866,11 +950,11 @@
                     </form>
                   )}
                   <div className="mt-1">
-                    {childBooks.map(book => <BookCard key={book.id} book={book} onOpen={onOpenBook} showIndicator={!isLibraryView} />)}
+                    {childBooks.map(book => <BookCard key={book.id} book={book} onOpen={onOpenBook} showIndicator={!isLibraryView} draggable={draggable} />)}
                   </div>
                   <div>
                     {childFolders.map(childFolder => (
-                      <FolderNode key={childFolder.id} folder={childFolder} allFolders={allFolders} allBooks={allBooks} level={level + 1} onAddBook={onAddBook} onOpenBook={onOpenBook} isLibraryView={isLibraryView} />
+                      <FolderNode key={childFolder.id} folder={childFolder} allFolders={allFolders} allBooks={allBooks} level={level + 1} onAddBook={onAddBook} onOpenBook={onOpenBook} isLibraryView={isLibraryView} draggable={draggable} />
                     ))}
                   </div>
                 </div>
@@ -879,8 +963,18 @@
           );
         };
 
+        const RootDropZone = ({ children }) => {
+          const dnd = useDragDrop();
+          const isOver = dnd && dnd.overTarget && dnd.overTarget.type === 'folder' && dnd.overTarget.id === 'root';
+          return (
+            <div data-folder-target="root" className={`space-y-1 min-h-[60px] rounded-xl transition-colors ${isOver ? 'bg-zinc-900/5 ring-2 ring-dashed ring-zinc-900' : ''}`}>
+              {children}
+            </div>
+          );
+        };
+
         const ListsView = () => {
-          const { folders, books, addFolder } = useArchive();
+          const { folders, books, addFolder, moveBookToPosition } = useArchive();
           const [isAddingRoot, setIsAddingRoot] = useState(false);
           const [newFolderName, setNewFolderName] = useState('');
           const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -925,10 +1019,12 @@
                     <p className="text-center text-sm font-medium">Klasör veya kitap ekleyerek başlayın.</p>
                   </div>
                 ) : (
-                  <div className="space-y-1">
-                    {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} showIndicator={true} />)}
-                    {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={folders} allBooks={books} onAddBook={(fid) => { setActiveFolderForAdd(fid); setSearchModalOpen(true); }} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} />)}
-                  </div>
+                  <DragDropProvider onDrop={(bookId, targetFolderId, anchorId, placement) => moveBookToPosition(bookId, targetFolderId, anchorId, placement)}>
+                    <RootDropZone>
+                      {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} showIndicator={true} draggable={true} />)}
+                      {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={folders} allBooks={books} onAddBook={(fid) => { setActiveFolderForAdd(fid); setSearchModalOpen(true); }} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} draggable={true} />)}
+                    </RootDropZone>
+                  </DragDropProvider>
                 )}
               </div>
 
