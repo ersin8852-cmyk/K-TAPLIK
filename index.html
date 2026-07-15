@@ -25,11 +25,42 @@
     <script type="text/plain" id="app-source">
         const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
         const { createRoot } = ReactDOM;
-        const {
-          Library, List, BarChart3, Plus, Search, ChevronDown, ChevronRight,
-          ArrowUp, ArrowDown, BookOpen, Edit2, Check, X, FolderPlus, FileText, MoveRight,
-          Camera, Trash2, AlertCircle, WifiOff
-        } = window.LucideReact;
+        // Bazı ikon isimleri, CDN'den gelen lucide-react sürümünde mevcut
+        // olmayabiliyor. Doğrudan destructuring yaparsak, eksik bir ikon
+        // "undefined" olur ve React bunu render etmeye çalışınca (Error #130)
+        // TÜM UYGULAMA çöküyordu. Bunun yerine her ikonu güvenli bir şekilde
+        // alıyoruz: yoksa çökmek yerine basit bir yedek (fallback) daire
+        // ikonu gösteriyoruz.
+        const FallbackIcon = (props) => (
+          <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+          </svg>
+        );
+        function pickIcon(name) {
+          const icon = window.LucideReact && window.LucideReact[name];
+          if (!icon) console.warn(`Lucide ikonu bulunamadı, yedek gösteriliyor: ${name}`);
+          return icon || FallbackIcon;
+        }
+        const Library = pickIcon('Library');
+        const List = pickIcon('List');
+        const BarChart3 = pickIcon('BarChart3');
+        const Plus = pickIcon('Plus');
+        const Search = pickIcon('Search');
+        const ChevronDown = pickIcon('ChevronDown');
+        const ChevronRight = pickIcon('ChevronRight');
+        const ArrowUp = pickIcon('ArrowUp');
+        const ArrowDown = pickIcon('ArrowDown');
+        const BookOpen = pickIcon('BookOpen');
+        const Edit2 = pickIcon('Edit2');
+        const Check = pickIcon('Check');
+        const X = pickIcon('X');
+        const FolderPlus = pickIcon('FolderPlus');
+        const FileText = pickIcon('FileText');
+        const MoveRight = pickIcon('MoveRight');
+        const Camera = pickIcon('Camera');
+        const Trash2 = pickIcon('Trash2');
+        const AlertCircle = pickIcon('AlertCircle');
+        const WifiOff = pickIcon('WifiOff');
 
         const STORAGE_KEY = 'archive_app_data_v3';
 
