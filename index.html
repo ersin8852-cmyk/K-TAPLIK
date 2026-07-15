@@ -1106,6 +1106,15 @@
                 await loadScript('https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js');
                 if (!window.ReactDOM) throw new Error('ReactDOM yüklendi ama window.ReactDOM oluşmadı');
 
+                // lucide-react'ın UMD derlemesi React modülünü küçük harfli
+                // "window.react" global değişkeninden okuyor (kütüphanenin
+                // kendi UMD sarmalayıcısında sabit kodlanmış: e.react).
+                // React'ın resmi UMD script'i ise "window.React" (büyük R)
+                // olarak tanımlıyor. Bu isim uyuşmazlığı olmasa lucide-react
+                // React'ı hiç bulamıyor ve "forwardRef" hatası veriyordu.
+                // Burada bir takma ad tanımlayarak bu sorunu çözüyoruz.
+                window.react = window.React;
+
                 await loadScript('https://unpkg.com/lucide-react@0.292.0/dist/umd/lucide-react.min.js');
                 if (!window.LucideReact) throw new Error('lucide-react yüklendi ama window.LucideReact oluşmadı');
 
