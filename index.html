@@ -341,6 +341,80 @@
             };
           }, [showCamera]);
 
+          // ISBN ile arama: Open Library'nin "books API"sini kullanıyoruz.
+          // Bu, search.json'un aksine TEK BİR SPESİFİK BASKININ kendi verisini
+          // döndürür (o baskının gerçek başlığı, yayınevi, sayfa sayısı).
+          // search.json ise bir kitabın TÜM baskılarının karışık/ortalama
+          // verisini veriyordu — bu yüzden yayınevi/sayfa sayısı yanlış ya da
+          // eksik geliyordu.
+          const fetchByIsbn = async (isbn) => {
+            const res = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+            if (!res.ok) throw new Error(`Open Library API hatası: ${res.status}`);
+            const json = await res.json();
+            const data = json[`ISBN:${isbn}`];
+            if (!data) return [];
+            return [{
+              isbn,
+              title: data.title || 'Bilinmeyen Kitap',
+              author: (data.authors || []).map(a => a.name).join(', ') || 'Bilinmeyen Yazar',
+              publisher: (data.publishers || []).map(p => p.name).join(', ') || 'Yayınevi Belirtilmemiş',
+              pageCount: data.number_of_pages || 0,
+              year: (data.publish_date && data.publish_date.match(/\d{4}/)?.[0]) || '',
+              price: '',
+              cover: data.cover ? (data.cover.medium || data.cover.large || data.cover.small || '') : ''
+            }];
+          };
+
+          // Başlık/yazar ile arama: önce search.json ile aday kitapları buluyoruz,
+          // sonra HER BİRİ için o baskının kendi kaydına (edition detayına) gidip
+          // gerçek yayınevi/sayfa sayısını çekiyoruz. Bu yüzden sonuç sayısını
+          // makul tutmak için 8 ile sınırlıyoruz (fazlası yavaşlatır).
+          const fetchByTitle = async (q) => {
+            const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,cover_edition_key,edition_key`);
+            if (!res.ok) throw new Error(`Open Library API hatası: ${res.status}`);
+            const json = await res.json();
+            const docs = json.docs || [];
+
+            const detailed = await Promise.all(docs.map(async (doc) => {
+              const cover = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : '';
+              const editionKey = doc.cover_edition_key || (doc.edition_key && doc.edition_key[0]);
+
+              if (editionKey) {
+                try {
+                  const eRes = await fetch(`https://openlibrary.org/books/${editionKey}.json`);
+                  if (eRes.ok) {
+                    const e = await eRes.json();
+                    const isbn = (e.isbn_13 && e.isbn_13[0]) || (e.isbn_10 && e.isbn_10[0]) || '';
+                    return {
+                      isbn,
+                      title: e.title || doc.title || 'Bilinmeyen Kitap',
+                      author: doc.author_name?.join(', ') || 'Bilinmeyen Yazar',
+                      publisher: (e.publishers && e.publishers.join(', ')) || 'Yayınevi Belirtilmemiş',
+                      pageCount: e.number_of_pages || 0,
+                      year: (e.publish_date && e.publish_date.match(/\d{4}/)?.[0]) || doc.first_publish_year || '',
+                      price: '',
+                      cover
+                    };
+                  }
+                } catch (e) { /* edition detayı alınamazsa aşağıdaki genel veriye düş */ }
+              }
+
+              // Baskı detayına ulaşılamazsa, en azından genel (work-level) veriyi göster
+              return {
+                isbn: '',
+                title: doc.title || 'Bilinmeyen Kitap',
+                author: doc.author_name?.join(', ') || 'Bilinmeyen Yazar',
+                publisher: 'Yayınevi Belirtilmemiş',
+                pageCount: 0,
+                year: doc.first_publish_year || '',
+                price: '',
+                cover
+              };
+            }));
+
+            return detailed;
+          };
+
           const performSearch = async (searchQuery) => {
             const q = (searchQuery ?? query).trim();
             if (!q) return;
@@ -352,76 +426,16 @@
             const cleanQuery = q.replace(/[- ]/g, '');
             const isIsbn = /^\d{10,13}$/.test(cleanQuery);
 
-            const fetchGoogle = async () => {
-              const gQuery = isIsbn ? `isbn:${cleanQuery}` : `intitle:${q}`;
-              const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(gQuery)}&maxResults=5`);
-              if (!res.ok) throw new Error(`Google Books API hatası: ${res.status}`);
-              const json = await res.json();
-              return json.items || [];
-            };
-
-            const fetchOpenLibrary = async () => {
-              const olQuery = isIsbn ? `isbn=${cleanQuery}` : `q=${encodeURIComponent(q)}`;
-              const res = await fetch(`https://openlibrary.org/search.json?${olQuery}&limit=5`);
-              if (!res.ok) throw new Error(`Open Library API hatası: ${res.status}`);
-              const json = await res.json();
-              return json.docs || [];
-            };
-
-            // Her iki API de ayrı ayrı hataya karşı korunuyor; hangisi başarısız
-            // olduysa kullanıcıya bildiriliyor (artık sessizce yutulmuyor).
-            const [googleResult, olResult] = await Promise.allSettled([fetchGoogle(), fetchOpenLibrary()]);
-
-            const googleData = googleResult.status === 'fulfilled' ? googleResult.value : [];
-            const olData = olResult.status === 'fulfilled' ? olResult.value : [];
-
-            if (googleResult.status === 'rejected' && olResult.status === 'rejected') {
+            try {
+              const items = isIsbn ? await fetchByIsbn(cleanQuery) : await fetchByTitle(q);
+              setResults(items);
+              if (items.length === 0) {
+                showToast('Sonuç bulunamadı.', 'error');
+              }
+            } catch (err) {
               showToast('Arama başarısız oldu. İnternet bağlantınızı kontrol edin.', 'error');
-            } else if (googleResult.status === 'rejected') {
-              showToast('Google Books şu an yanıt vermiyor, sonuçlar Open Library ile sınırlı.', 'error');
-            } else if (olResult.status === 'rejected') {
-              showToast('Open Library şu an yanıt vermiyor, sonuçlar Google Books ile sınırlı.', 'error');
             }
 
-            const mergedResults = [];
-
-            googleData.forEach(gItem => {
-              const vol = gItem.volumeInfo || {};
-              const isbnObj = vol.industryIdentifiers?.find(i => i.type === 'ISBN_13' || i.type === 'ISBN_10');
-              const isbn = isbnObj ? isbnObj.identifier : '';
-
-              const olMatch = olData.find(ol =>
-                (isbn && ol.isbn && ol.isbn.includes(isbn)) ||
-                (ol.title && vol.title && ol.title.toLowerCase() === vol.title.toLowerCase())
-              );
-
-              mergedResults.push({
-                isbn: isbn || (olMatch?.isbn?.[0] || ''),
-                title: vol.title || olMatch?.title || 'Bilinmeyen Kitap',
-                author: vol.authors?.join(', ') || olMatch?.author_name?.join(', ') || 'Bilinmeyen Yazar',
-                publisher: vol.publisher || olMatch?.publisher?.[0] || 'Yayınevi Belirtilmemiş',
-                pageCount: vol.pageCount || olMatch?.number_of_pages_median || 0,
-                year: vol.publishedDate?.substring(0, 4) || olMatch?.first_publish_year || '',
-                price: ''
-              });
-            });
-
-            olData.forEach(olItem => {
-              const isbn = olItem.isbn?.[0] || '';
-              if (!mergedResults.some(m => (isbn && m.isbn === isbn) || m.title === olItem.title)) {
-                mergedResults.push({
-                  isbn: isbn,
-                  title: olItem.title || 'Bilinmeyen Kitap',
-                  author: olItem.author_name?.join(', ') || 'Bilinmeyen Yazar',
-                  publisher: olItem.publisher?.[0] || 'Yayınevi Belirtilmemiş',
-                  pageCount: olItem.number_of_pages_median || 0,
-                  year: olItem.first_publish_year || '',
-                  price: ''
-                });
-              }
-            });
-
-            setResults(mergedResults);
             setLoading(false);
           };
 
