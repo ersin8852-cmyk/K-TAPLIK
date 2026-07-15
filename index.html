@@ -289,6 +289,7 @@
         const SearchAddModal = ({ isOpen, onClose, folderId }) => {
           const { addBook, showToast } = useArchive();
           const [query, setQuery] = useState('');
+          const [publisherFilter, setPublisherFilter] = useState('');
           const [results, setResults] = useState([]);
           const [loading, setLoading] = useState(false);
           const [showCamera, setShowCamera] = useState(false);
@@ -298,6 +299,7 @@
           useEffect(() => {
             if (!isOpen) {
               setQuery('');
+              setPublisherFilter('');
               setResults([]);
               setHasSearched(false);
               setShowCamera(false);
@@ -369,16 +371,44 @@
           // sonra HER BİRİ için o baskının kendi kaydına (edition detayına) gidip
           // gerçek yayınevi/sayfa sayısını çekiyoruz. Bu yüzden sonuç sayısını
           // makul tutmak için 8 ile sınırlıyoruz (fazlası yavaşlatır).
-          const fetchByTitle = async (q) => {
-            const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,cover_edition_key,edition_key`);
+          const fetchByTitle = async (q, publisher) => {
+            let searchQ = q || '';
+            if (publisher && publisher.trim()) {
+              searchQ = searchQ ? `${searchQ} publisher:"${publisher.trim()}"` : `publisher:"${publisher.trim()}"`;
+            }
+            const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(searchQ)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,cover_edition_key,edition_key,isbn,publisher`);
             if (!res.ok) throw new Error(`Open Library API hatası: ${res.status}`);
             const json = await res.json();
             const docs = json.docs || [];
 
             const detailed = await Promise.all(docs.map(async (doc) => {
               const cover = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : '';
-              const editionKey = doc.cover_edition_key || (doc.edition_key && doc.edition_key[0]);
 
+              // ÖNCELİK 1: search.json bir ISBN döndürdüyse, bunu ISBN uç
+              // noktasıyla (jscmd=data) zenginleştir. Bu uç nokta, ham baskı
+              // (edition) kaydından çok daha güvenilir/eksiksiz yayınevi,
+              // sayfa sayısı ve kapak verisi döndürüyor — "boş görünen alanlar"
+              // sorununun asıl çözümü bu.
+              const isbnCandidate = doc.isbn && doc.isbn[0];
+              if (isbnCandidate) {
+                try {
+                  const enriched = await fetchByIsbn(isbnCandidate);
+                  if (enriched.length && (enriched[0].publisher !== 'Yayınevi Belirtilmemiş' || enriched[0].pageCount)) {
+                    const item = enriched[0];
+                    return {
+                      ...item,
+                      title: item.title || doc.title || 'Bilinmeyen Kitap',
+                      author: item.author || doc.author_name?.join(', ') || 'Bilinmeyen Yazar',
+                      cover: item.cover || cover,
+                      year: item.year || doc.first_publish_year || ''
+                    };
+                  }
+                } catch (e) { /* ISBN zenginleştirme başarısız olursa aşağıdaki yönteme düş */ }
+              }
+
+              // ÖNCELİK 2: ISBN yok veya zenginleştirme boş döndüyse, baskının
+              // kendi edition kaydına bak.
+              const editionKey = doc.cover_edition_key || (doc.edition_key && doc.edition_key[0]);
               if (editionKey) {
                 try {
                   const eRes = await fetch(`https://openlibrary.org/books/${editionKey}.json`);
@@ -389,7 +419,7 @@
                       isbn,
                       title: e.title || doc.title || 'Bilinmeyen Kitap',
                       author: doc.author_name?.join(', ') || 'Bilinmeyen Yazar',
-                      publisher: (e.publishers && e.publishers.join(', ')) || 'Yayınevi Belirtilmemiş',
+                      publisher: (e.publishers && e.publishers.join(', ')) || (doc.publisher && doc.publisher[0]) || 'Yayınevi Belirtilmemiş',
                       pageCount: e.number_of_pages || 0,
                       year: (e.publish_date && e.publish_date.match(/\d{4}/)?.[0]) || doc.first_publish_year || '',
                       price: '',
@@ -399,12 +429,12 @@
                 } catch (e) { /* edition detayı alınamazsa aşağıdaki genel veriye düş */ }
               }
 
-              // Baskı detayına ulaşılamazsa, en azından genel (work-level) veriyi göster
+              // ÖNCELİK 3: Hiçbiri çalışmazsa, en azından genel (work-level) veriyi göster
               return {
                 isbn: '',
                 title: doc.title || 'Bilinmeyen Kitap',
                 author: doc.author_name?.join(', ') || 'Bilinmeyen Yazar',
-                publisher: 'Yayınevi Belirtilmemiş',
+                publisher: (doc.publisher && doc.publisher[0]) || 'Yayınevi Belirtilmemiş',
                 pageCount: 0,
                 year: doc.first_publish_year || '',
                 price: '',
@@ -417,17 +447,18 @@
 
           const performSearch = async (searchQuery) => {
             const q = (searchQuery ?? query).trim();
-            if (!q) return;
+            const pub = publisherFilter.trim();
+            if (!q && !pub) return;
 
             setLoading(true);
             setResults([]);
             setHasSearched(true);
 
             const cleanQuery = q.replace(/[- ]/g, '');
-            const isIsbn = /^\d{10,13}$/.test(cleanQuery);
+            const isIsbn = q.length > 0 && /^\d{10,13}$/.test(cleanQuery);
 
             try {
-              const items = isIsbn ? await fetchByIsbn(cleanQuery) : await fetchByTitle(q);
+              const items = isIsbn ? await fetchByIsbn(cleanQuery) : await fetchByTitle(q, pub);
               setResults(items);
               if (items.length === 0) {
                 showToast('Sonuç bulunamadı.', 'error');
@@ -476,9 +507,17 @@
                       <Camera size={20} />
                     </button>
                   </div>
+                  <input
+                    type="text"
+                    placeholder="Yayınevi (opsiyonel filtre)..."
+                    className="w-full px-4 py-2.5 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-800 bg-zinc-50 text-sm"
+                    value={publisherFilter}
+                    onChange={e => setPublisherFilter(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && performSearch()}
+                  />
                   <button
                     onClick={() => performSearch()}
-                    disabled={loading || !query.trim()}
+                    disabled={loading || (!query.trim() && !publisherFilter.trim())}
                     className="w-full py-2.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 font-medium transition-colors disabled:opacity-50"
                   >
                     {loading ? 'Aranıyor...' : 'Ara'}
@@ -500,11 +539,20 @@
                   ) : results.length > 0 ? (
                     <div className="flex flex-col gap-3">
                       {results.map((book, idx) => (
-                        <div key={idx} className="bg-white p-4 rounded-xl border border-zinc-200 flex justify-between items-center shadow-sm">
-                          <div className="flex-1 pr-3">
-                            <h3 className="font-semibold text-zinc-800 leading-tight mb-1">{book.title}</h3>
-                            <p className="text-xs text-zinc-500 mb-0.5">{book.author} • {book.publisher}</p>
-                            <p className="text-[10px] text-zinc-400">ISBN: {book.isbn || 'Yok'} | {book.pageCount} Sayfa</p>
+                        <div key={idx} className="bg-white p-4 rounded-xl border border-zinc-200 flex justify-between items-center shadow-sm gap-3">
+                          <div className="flex items-center gap-3 flex-1 overflow-hidden">
+                            {book.cover ? (
+                              <img src={book.cover} alt="" className="w-10 h-14 object-cover rounded-md border border-zinc-200 shrink-0 bg-zinc-100" />
+                            ) : (
+                              <div className="w-10 h-14 bg-zinc-100 rounded-md border border-zinc-200 shrink-0 flex items-center justify-center">
+                                <BookOpen size={14} className="text-zinc-300" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-zinc-800 leading-tight mb-1 truncate">{book.title}</h3>
+                              <p className="text-xs text-zinc-500 mb-0.5 truncate">{book.author} • {book.publisher}</p>
+                              <p className="text-[10px] text-zinc-400">ISBN: {book.isbn || 'Yok'} | {book.pageCount || 0} Sayfa</p>
+                            </div>
                           </div>
                           <button
                             onClick={() => handleAdd(book)}
@@ -583,8 +631,11 @@
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 z-40">
               <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh] sm:h-auto animate-in slide-in-from-bottom-10">
 
-                <div className="p-4 border-b flex justify-between items-start bg-zinc-50 relative">
-                  <div className="flex-1 pr-4">
+                <div className="p-4 border-b flex justify-between items-start bg-zinc-50 relative gap-3">
+                  {book.cover && !isEditing && (
+                    <img src={book.cover} alt="" className="w-14 h-20 object-cover rounded-lg border border-zinc-200 shrink-0 bg-zinc-100" />
+                  )}
+                  <div className="flex-1 pr-4 min-w-0">
                     {isEditing ? (
                       <input
                         name="title" value={formData.title} onChange={handleChange}
@@ -731,8 +782,12 @@
                 className="flex-1 cursor-pointer flex items-center gap-3 overflow-hidden"
                 onClick={() => onOpen(book.id)}
               >
-                <div className="bg-zinc-50 p-2 rounded-lg text-zinc-400 border border-zinc-100 shrink-0">
-                  <BookOpen size={16} />
+                <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
+                  {book.cover ? (
+                    <img src={book.cover} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <BookOpen size={16} />
+                  )}
                 </div>
                 <div className="truncate">
                   <h4 className="font-semibold text-zinc-800 text-sm truncate">{book.title}</h4>
