@@ -17,6 +17,16 @@
 
         #reader { width: 100%; border-radius: 12px; overflow: hidden; border: none !important; }
         #reader video { object-fit: cover; }
+
+        /* Sürükle-bırak sırasında sayfa genelinde metin seçimini engelle.
+           Bu class, DragDropProvider tarafından sürükleme başladığında
+           <body> etiketine eklenir, bittiğinde kaldırılır. */
+        body.dnd-active, body.dnd-active * {
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+            user-select: none !important;
+        }
     </style>
 </head>
 <body class="bg-zinc-100 flex justify-center text-zinc-900">
@@ -297,6 +307,8 @@
             setDraggedId(bookId);
             setGhostPos({ x: e.clientX, y: e.clientY });
             setOverTarget(null);
+            // Sürükleme başlarken sayfa genelinde metin seçimini kapat.
+            document.body.classList.add('dnd-active');
           };
 
           const updateDrag = (e) => {
@@ -327,9 +339,14 @@
             }
             setDraggedId(null);
             setOverTarget(null);
+            document.body.classList.remove('dnd-active');
           };
 
-          const cancelDrag = () => { setDraggedId(null); setOverTarget(null); };
+          const cancelDrag = () => {
+            setDraggedId(null);
+            setOverTarget(null);
+            document.body.classList.remove('dnd-active');
+          };
 
           const draggedBook = draggedId ? books.find(b => b.id === draggedId) : null;
 
