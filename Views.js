@@ -5,27 +5,10 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const startPosRef = useRef({ x: 0, y: 0 });
   const cardRef = useRef(null);
-  const ghostRef = useRef(null);
-
-  // Siyah kutucuğu engelle
-  useEffect(() => {
-    if (isDragged) {
-      const img = new Image();
-      img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=';
-      
-      const handleDragStart = (e) => {
-        e.dataTransfer.setDragImage(img, 0, 0);
-      };
-      
-      document.addEventListener('dragstart', handleDragStart);
-      return () => document.removeEventListener('dragstart', handleDragStart);
-    }
-  }, [isDragged]);
 
   const handlePointerDown = (e) => {
     if (!draggable || !dnd) return;
     e.stopPropagation();
-    e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     startPosRef.current = { x: e.clientX, y: e.clientY };
     dnd.startDrag(book.id, e);
@@ -60,17 +43,16 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
           WebkitUserSelect: 'none',
           touchAction: draggable ? 'none' : 'auto',
         }}
-        className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${isDragged ? 'opacity-30' : 'border-zinc-100'} ${draggable ? 'cursor-grab active:cursor-grabbing touch-none select-none' : ''}`}
+        className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${isDragged ? 'opacity-30' : 'border-zinc-100'} ${draggable ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={() => { if (draggable && dnd) { setDragOffset({ x: 0, y: 0 }); dnd.cancelDrag(); } }}
-        onDragStart={(e) => e.preventDefault()}
       >
         <div className="flex-1 flex items-center gap-3 overflow-hidden">
           <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
             {book.cover ? (
-              <img src={book.cover} alt="" draggable="false" className="w-full h-full object-cover" />
+              <img src={book.cover} alt="" className="w-full h-full object-cover" />
             ) : (
               <BookOpen size={16} />
             )}
@@ -115,7 +97,7 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
           <div className="flex-1 flex items-center gap-3 overflow-hidden">
             <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
               {book.cover ? (
-                <img src={book.cover} alt="" draggable="false" className="w-full h-full object-cover" />
+                <img src={book.cover} alt="" className="w-full h-full object-cover" />
               ) : (
                 <BookOpen size={16} />
               )}
@@ -170,7 +152,7 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
       ) : (
         <div
           data-folder-target={draggable ? folder.id : undefined}
-          className={`group flex items-center justify-between p-2 rounded-xl transition-colors border ${isDropTarget ? 'bg-zinc-900/5 border-dashed border-zinc-900' : 'border-transparent hover:bg-zinc-50 hover:border-zinc-100'}`}
+          className={`group flex items-center justify-between p-2 rounded-xl transition-colors border ${isDropTarget ? 'bg-zinc-50 border-dashed border-zinc-300' : 'border-transparent hover:bg-zinc-50 hover:border-zinc-100'}`}
         >
           <div className="flex items-center gap-2 cursor-pointer flex-1 overflow-hidden" onClick={() => setIsOpen(!isOpen)}>
             {isOpen ? <ChevronDown size={18} className="text-zinc-400 shrink-0" /> : <ChevronRight size={18} className="text-zinc-400 shrink-0" />}
@@ -218,7 +200,7 @@ const RootDropZone = ({ children }) => {
   const dnd = useDragDrop();
   const isOver = dnd && dnd.overTarget && dnd.overTarget.type === 'folder' && dnd.overTarget.id === 'root';
   return (
-    <div data-folder-target="root" className={`space-y-1 min-h-[60px] rounded-xl transition-colors ${isOver ? 'bg-zinc-900/5 ring-2 ring-dashed ring-zinc-900' : ''}`}>
+    <div data-folder-target="root" className={`space-y-1 min-h-[60px] rounded-xl transition-colors ${isOver ? 'bg-zinc-50' : ''}`}>
       {children}
     </div>
   );
@@ -347,7 +329,6 @@ const ListsView = () => {
         )}
       </div>
 
-      {/* Yuvarlak Siyah Artı Butonu - Sağ Alt Köşe */}
       <div className="absolute bottom-24 right-6 z-20">
         <button
           onClick={() => { setActiveFolderForAdd(null); setSearchModalOpen(true); }}
@@ -511,7 +492,7 @@ const StatsView = () => {
       }
     };
     reader.readAsText(file);
-    e.target.value = ''; // Input'u sıfırla ki aynı dosyayı tekrar seçebilsin
+    e.target.value = '';
   };
 
   const stats = useMemo(() => {
