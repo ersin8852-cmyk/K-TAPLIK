@@ -207,7 +207,7 @@ const ListsView = () => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-white relative">
       <div className="p-4 pt-6 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 shadow-sm min-h-[70px] flex items-center">
         {isSearching ? (
           <div className="flex w-full items-center gap-2">
@@ -223,7 +223,6 @@ const ListsView = () => {
             <div className="flex gap-2">
               <button onClick={() => setIsSearching(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Listelerde Ara"><Search size={18} /></button>
               <button onClick={() => setIsAddingRoot(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Klasör Ekle"><FolderPlus size={18} /></button>
-              <button onClick={() => { setActiveFolderForAdd(null); setSearchModalOpen(true); }} className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-colors text-sm font-medium"><Plus size={16} /> Ekle</button>
             </div>
           </div>
         )}
@@ -271,6 +270,17 @@ const ListsView = () => {
             )}
           </>
         )}
+      </div>
+
+      {/* Yuvarlak Siyah Artı Butonu - Sağ Alt Köşe */}
+      <div className="absolute bottom-24 right-6 z-20">
+        <button
+          onClick={() => { setActiveFolderForAdd(null); setSearchModalOpen(true); }}
+          className="w-14 h-14 bg-zinc-900 hover:bg-zinc-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center active:scale-95"
+          title="Kitap Ekle"
+        >
+          <Plus size={24} />
+        </button>
       </div>
 
       <SearchAddModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} folderId={activeFolderForAdd} />
