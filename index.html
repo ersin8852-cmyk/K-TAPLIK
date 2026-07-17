@@ -5,17 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Archive Kütüphanesi</title>
 
-    <!-- PWA Bağlantıları Başlangıcı -->
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#ffffff" media="(max-width: 639px)">
     <meta name="theme-color" content="#18181b" media="(min-width: 640px)">
     <link rel="apple-touch-icon" href="https://placehold.co/192x192/18181b/ffffff?text=A">
-    <!-- PWA Bağlantıları Bitişi -->
 
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Yeni CSS Dosyamızın Bağlantısı -->
     <link rel="stylesheet" href="./styles.css">
 </head>
 <body class="bg-white sm:bg-zinc-100 flex justify-center text-zinc-900 overflow-x-hidden">
@@ -46,7 +41,7 @@
                         <code style="font-size:11px; word-break:break-all;">${failedUrl}</code>
                     </p>
                     <p style="margin:0; color:#a1a1aa; font-size:12px; max-width:320px;">
-                        İnternet bağlantınızı kontrol edin. Lütfen bilgisayarda çift tıklayarak değil, projenizi GitHub/Vercel üzerinden çalıştırarak test edin.
+                        Lütfen Vercel üzerinden çalıştırdığınıza emin olun. İnternet bağlantınızı kontrol edin.
                     </p>
                     <button onclick="window.location.reload()" style="margin-top:8px; padding:8px 16px; background:#18181b; color:white; border:none; border-radius:10px; font-size:13px; cursor:pointer;">
                         Sayfayı Yenile
@@ -56,7 +51,6 @@
 
         async function bootstrap() {
             try {
-                // Temel kütüphaneleri yüklüyoruz
                 await loadScript('https://unpkg.com/react@18.2.0/umd/react.production.min.js');
                 if (!window.React) throw new Error('React yüklendi ama window.React oluşmadı');
 
@@ -74,13 +68,23 @@
                 await loadScript('https://unpkg.com/@babel/standalone/babel.min.js');
                 if (!window.Babel) throw new Error('Babel yüklendi ama window.Babel oluşmadı');
 
-                // MODÜLER YAPI: app.js dosyasını kendi klasöründen (veya Vercel sunucusundan) dışarıdan çekiyoruz
-                const response = await fetch('./app.js');
-                if (!response.ok) throw new Error('./app.js dosyası çekilemedi');
-                const source = await response.text();
+                // Yeni modüler yapımız: 5 dosyayı sırayla çekip birleştiriyoruz
+                const files = [
+                    './context.js',
+                    './SearchModal.js',
+                    './BookDetail.js',
+                    './Views.js',
+                    './main.js'
+                ];
 
-                // Çekilen kodu Babel ile derliyoruz
-                const compiled = window.Babel.transform(source, {
+                let fullSource = '';
+                for (const file of files) {
+                    const response = await fetch(file);
+                    if (!response.ok) throw new Error(`${file} dosyası çekilemedi`);
+                    fullSource += await response.text() + '\n\n';
+                }
+
+                const compiled = window.Babel.transform(fullSource, {
                     presets: [['react', { runtime: 'classic' }]]
                 }).code;
 
