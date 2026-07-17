@@ -2,6 +2,7 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   const dnd = useDragDrop();
   const isDragged = draggable && dnd && dnd.draggedId === book.id;
   const over = draggable && dnd && dnd.overTarget && dnd.overTarget.type === 'book' && dnd.overTarget.id === book.id ? dnd.overTarget.placement : null;
+  const cardRef = useRef(null);
 
   const handlePointerDown = (e) => {
     if (!draggable || !dnd) return;
@@ -24,15 +25,18 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
 
   return (
     <div
+      ref={cardRef}
       id={`book-node-${book.id}`}
       data-book-target={draggable ? book.id : undefined}
       data-book-target-folder={draggable ? (book.folderId === null ? 'root' : book.folderId) : undefined}
       style={{
         marginTop: over === 'after' ? '2rem' : '0.375rem',
         marginBottom: over === 'before' ? '2rem' : '0.375rem',
-        transition: 'margin 0.2s ease, opacity 0.2s ease, transform 0.2s ease',
+        transition: 'margin 0.2s ease, box-shadow 0.2s ease',
+        zIndex: isDragged ? 50 : 'auto',
+        position: isDragged ? 'relative' : undefined,
       }}
-      className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${isDragged ? 'opacity-30 scale-95' : 'border-zinc-100'} ${over === 'before' ? 'border-t-2 border-t-zinc-900' : ''} ${over === 'after' ? 'border-b-2 border-b-zinc-900' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing touch-none' : ''}`}
+      className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${isDragged ? 'opacity-100 shadow-xl scale-105 border-zinc-900' : 'border-zinc-100'} ${over === 'before' ? 'border-t-2 border-t-zinc-900' : ''} ${over === 'after' ? 'border-b-2 border-b-zinc-900' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing touch-none' : ''}`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
