@@ -3,44 +3,44 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   const isDragged = draggable && dnd && dnd.draggedId === book.id;
   const over = draggable && dnd && dnd.overTarget && dnd.overTarget.type === 'book' && dnd.overTarget.id === book.id ? dnd.overTarget.placement : null;
 
+  const handlePointerDown = (e) => {
+    if (!draggable || !dnd) return;
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dnd.startDrag(book.id, e);
+  };
+
+  const handlePointerMove = (e) => {
+    if (!draggable || !dnd || dnd.draggedId !== book.id) return;
+    e.stopPropagation();
+    dnd.updateDrag(e);
+  };
+
+  const handlePointerUp = (e) => {
+    if (!draggable || !dnd || dnd.draggedId !== book.id) return;
+    e.stopPropagation();
+    dnd.endDrag();
+  };
+
   return (
     <div
       id={`book-node-${book.id}`}
       data-book-target={draggable ? book.id : undefined}
       data-book-target-folder={draggable ? (book.folderId === null ? 'root' : book.folderId) : undefined}
-      className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 transition-all duration-200 ml-2 sm:ml-4 
-        ${isDragged ? 'opacity-30 scale-95' : 'border-zinc-100'} 
-        ${over === 'before' ? 'mt-4 border-t-2 border-t-zinc-900' : 'mt-0'} 
-        ${over === 'after' ? 'mb-4 border-b-2 border-b-zinc-900' : 'mb-0'}
-        ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
-      style={{
-        marginTop: over === 'before' ? '1rem' : undefined,
-        marginBottom: over === 'after' ? '1rem' : undefined,
-      }}
-      onPointerDown={(e) => {
-        if (draggable && dnd) {
-          e.preventDefault();
-          dnd.startDrag(book.id, e);
-        }
-      }}
-      onPointerMove={(e) => {
-        if (draggable && dnd && dnd.draggedId === book.id) {
-          e.stopPropagation();
-          dnd.updateDrag(e);
-        }
-      }}
-      onPointerUp={(e) => {
-        if (draggable && dnd && dnd.draggedId === book.id) {
-          e.stopPropagation();
-          dnd.endDrag();
-        }
-      }}
-      onPointerCancel={() => {
-        if (draggable && dnd) dnd.cancelDrag();
-      }}
+      className={`group flex items-center justify-between p-3 mb-1.5 bg-white border rounded-xl shadow-sm hover:border-zinc-300 transition-all duration-200 ml-2 sm:ml-4 ${isDragged ? 'opacity-30' : 'border-zinc-100'} ${over === 'before' ? 'border-t-2 border-t-zinc-900 mt-3' : ''} ${over === 'after' ? 'border-b-2 border-b-zinc-900 mb-3' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing touch-none' : ''}`}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={() => { if (draggable && dnd) dnd.cancelDrag(); }}
     >
       <div
-        className="flex-1 flex items-center gap-3 overflow-hidden pointer-events-none"
+        className="flex-1 flex items-center gap-3 overflow-hidden"
+        onClick={(e) => {
+          if (!isDragged) {
+            e.stopPropagation();
+            onOpen(book.id);
+          }
+        }}
       >
         <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
           {book.cover ? (
