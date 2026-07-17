@@ -2,75 +2,113 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   const dnd = useDragDrop();
   const isDragged = draggable && dnd && dnd.draggedId === book.id;
   const over = draggable && dnd && dnd.overTarget && dnd.overTarget.type === 'book' && dnd.overTarget.id === book.id ? dnd.overTarget.placement : null;
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const startPosRef = useRef({ x: 0, y: 0 });
+  const cardRef = useRef(null);
 
   const handlePointerDown = (e) => {
     if (!draggable || !dnd) return;
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
+    startPosRef.current = { x: e.clientX, y: e.clientY };
     dnd.startDrag(book.id, e);
   };
 
   const handlePointerMove = (e) => {
     if (!draggable || !dnd || dnd.draggedId !== book.id) return;
     e.stopPropagation();
+    const dy = e.clientY - startPosRef.current.y;
+    setDragOffset({ x: 0, y: dy });
     dnd.updateDrag(e);
   };
 
   const handlePointerUp = (e) => {
     if (!draggable || !dnd || dnd.draggedId !== book.id) return;
     e.stopPropagation();
+    setDragOffset({ x: 0, y: 0 });
     dnd.endDrag();
   };
 
   return (
-    <div
-      id={`book-node-${book.id}`}
-      data-book-target={draggable ? book.id : undefined}
-      data-book-target-folder={draggable ? (book.folderId === null ? 'root' : book.folderId) : undefined}
-      style={{
-        marginTop: over === 'after' ? '2rem' : '0.375rem',
-        marginBottom: over === 'before' ? '2rem' : '0.375rem',
-        transition: 'margin 0.2s ease, opacity 0.2s ease, transform 0.2s ease',
-      }}
-      className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${isDragged ? 'opacity-40' : 'border-zinc-100'} ${over === 'before' ? 'border-t-2 border-t-zinc-900' : ''} ${over === 'after' ? 'border-b-2 border-b-zinc-900' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing touch-none select-none' : ''}`}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={() => { if (draggable && dnd) dnd.cancelDrag(); }}
-    >
+    <>
+      {/* Orjinal kart - soluk */}
       <div
-        className="flex-1 flex items-center gap-3 overflow-hidden"
-        onClick={(e) => {
-          e.stopPropagation();
-          onOpen(book.id);
+        id={`book-node-${book.id}`}
+        data-book-target={draggable ? book.id : undefined}
+        data-book-target-folder={draggable ? (book.folderId === null ? 'root' : book.folderId) : undefined}
+        style={{
+          marginTop: over === 'after' ? '2rem' : '0.375rem',
+          marginBottom: over === 'before' ? '2rem' : '0.375rem',
+          transition: 'margin 0.2s ease, opacity 0.2s ease',
         }}
+        className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${isDragged ? 'opacity-30' : 'border-zinc-100'} ${over === 'before' ? 'border-t-2 border-t-zinc-900' : ''} ${over === 'after' ? 'border-b-2 border-b-zinc-900' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing touch-none select-none' : ''}`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={() => { if (draggable && dnd) { setDragOffset({ x: 0, y: 0 }); dnd.cancelDrag(); } }}
       >
-        <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
-          {book.cover ? (
-            <img src={book.cover} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <BookOpen size={16} />
+        <div className="flex-1 flex items-center gap-3 overflow-hidden">
+          <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
+            {book.cover ? (
+              <img src={book.cover} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <BookOpen size={16} />
+            )}
+          </div>
+          <div className="truncate flex-1">
+            <h4 className="font-semibold text-zinc-800 text-sm truncate">{book.title}</h4>
+            {folderPath ? (
+               <p 
+                 className="text-[10px] font-medium text-zinc-500 truncate flex items-center gap-1 mt-1 cursor-pointer hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 w-fit px-2 py-0.5 rounded-full"
+                 onClick={(e) => { if (onNavigate) { e.stopPropagation(); onNavigate(book); } }}
+                 title="Klasördeki yerine git"
+               >
+                 <Folder size={10} /> {folderPath} <MoveRight size={10} className="ml-0.5 opacity-60" />
+               </p>
+            ) : (
+               <p className="text-[11px] text-zinc-500 truncate">{book.publisher || 'Yayınevi Yok'}</p>
+            )}
+          </div>
+          {showIndicator && book.inLibrary && (
+            <span className="ml-auto w-2 h-2 rounded-full bg-zinc-900 shrink-0" title="Kütüphanemde"></span>
           )}
         </div>
-        <div className="truncate flex-1">
-          <h4 className="font-semibold text-zinc-800 text-sm truncate">{book.title}</h4>
-          {folderPath ? (
-             <p 
-               className="text-[10px] font-medium text-zinc-500 truncate flex items-center gap-1 mt-1 cursor-pointer hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 w-fit px-2 py-0.5 rounded-full"
-               onClick={(e) => { if (onNavigate) { e.stopPropagation(); onNavigate(book); } }}
-               title="Klasördeki yerine git"
-             >
-               <Folder size={10} /> {folderPath} <MoveRight size={10} className="ml-0.5 opacity-60" />
-             </p>
-          ) : (
-             <p className="text-[11px] text-zinc-500 truncate">{book.publisher || 'Yayınevi Yok'}</p>
-          )}
-        </div>
-        {showIndicator && book.inLibrary && (
-          <span className="ml-auto w-2 h-2 rounded-full bg-zinc-900 shrink-0" title="Kütüphanemde"></span>
-        )}
       </div>
-    </div>
+
+      {/* Sürüklenen klon kart - parmakla hareket eder */}
+      {isDragged && (
+        <div
+          ref={cardRef}
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            top: startPosRef.current.y - 30,
+            transform: `translateY(${dragOffset.y}px)`,
+            zIndex: 9999,
+            marginLeft: '0.5rem',
+            marginRight: '0.5rem',
+            pointerEvents: 'none',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1)',
+          }}
+          className="flex items-center justify-between p-3 bg-white border-2 border-zinc-900 rounded-xl"
+        >
+          <div className="flex-1 flex items-center gap-3 overflow-hidden">
+            <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
+              {book.cover ? (
+                <img src={book.cover} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <BookOpen size={16} />
+              )}
+            </div>
+            <div className="truncate flex-1">
+              <h4 className="font-semibold text-zinc-800 text-sm truncate">{book.title}</h4>
+              <p className="text-[11px] text-zinc-500 truncate">{book.publisher || 'Yayınevi Yok'}</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
