@@ -94,59 +94,65 @@
     <div id="root" class="w-full h-full sm:max-w-md bg-white sm:shadow-2xl relative overflow-hidden flex flex-col h-[100dvh]"></div>
 
     <!-- Animasyon Mantığı -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const splash = document.getElementById('custom-splash');
-            const titleEl = document.getElementById('splash-title');
-            const subtitleEl = document.getElementById('splash-subtitle');
+<!-- Animasyon Mantığı -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const splash = document.getElementById('custom-splash');
+    const titleEl = document.getElementById('splash-title');
+    const subtitleEl = document.getElementById('splash-subtitle');
+    const titleText = "Archive";
+    const subtitleText = "Kütüphanen artık cebinde...";
 
-            const titleText = "Archive";
-            const subtitleText = "Kütüphanen artık cebinde...";
+    // Kullanıcı ekrana dokunur/tıklarsa animasyonu beklemeden anında kapat.
+    let skipped = false;
+    const skipSplash = () => {
+        if (skipped) return;
+        skipped = true;
+        splash.classList.add('fade-out');
+        setTimeout(() => splash.remove(), 400);
+    };
+    splash.addEventListener('click', skipSplash);
+    splash.addEventListener('touchstart', skipSplash, { passive: true });
 
-            // İnsan hızıyla rastgele yazma fonksiyonu (Alt yazı için)
-            const typeText = async (element, text, minSpeed, maxSpeed) => {
-                element.classList.add('cursor');
-                for (let i = 0; i < text.length; i++) {
-                    element.innerHTML = text.substring(0, i + 1);
-                    const delay = Math.random() * (maxSpeed - minSpeed) + minSpeed;
-                    await new Promise(r => setTimeout(r, delay));
-                }
-            };
+    const typeText = async (element, text, minSpeed, maxSpeed) => {
+        element.classList.add('cursor');
+        for (let i = 0; i < text.length; i++) {
+            if (skipped) return;
+            element.innerHTML = text.substring(0, i + 1);
+            const delay = Math.random() * (maxSpeed - minSpeed) + minSpeed;
+            await new Promise(r => setTimeout(r, delay));
+        }
+    };
 
-            const runAnimation = async () => {
-                // 0. Uygulama açılışındaki o ilk siyah ikonun geçmesi için 1 saniye (1000ms) bekle
-                await new Promise(r => setTimeout(r, 1000));
+    const runAnimation = async () => {
+        await new Promise(r => setTimeout(r, 1000));
+        if (skipped) return;
 
-                // 1. "Archive" kelimesini harf harf yumuşakça ekrana düşür
-                titleEl.innerHTML = '';
-                for (let i = 0; i < titleText.length; i++) {
-                    const span = document.createElement('span');
-                    span.textContent = titleText[i];
-                    span.className = 'fade-letter';
-                    // Her harfin gelişine ufak bir gecikme ekliyoruz (sırayla belirmesi için)
-                    span.style.animationDelay = `${i * 0.15}s`;
-                    titleEl.appendChild(span);
-                }
+        titleEl.innerHTML = '';
+        for (let i = 0; i < titleText.length; i++) {
+            const span = document.createElement('span');
+            span.textContent = titleText[i];
+            span.className = 'fade-letter';
+            span.style.animationDelay = `${i * 0.15}s`;
+            titleEl.appendChild(span);
+        }
 
-                // Harflerin tamamen belirmesini izlemek için 1.5 saniye bekle
-                await new Promise(r => setTimeout(r, 1500));
-                
-                // 2. Alt yazıyı daktilo hızıyla ve imleçle yaz
-                await typeText(subtitleEl, subtitleText, 50, 80);
+        await new Promise(r => setTimeout(r, 1500));
+        if (skipped) return;
 
-                // 3. Yazı bittikten sonra tam okunması için yarım saniye bekle
-                await new Promise(r => setTimeout(r, 600));
+        await typeText(subtitleEl, subtitleText, 50, 80);
+        if (skipped) return;
 
-                // 4. Ekranı hızlı ve yumuşak bir şekilde erit (fade-out)
-                splash.classList.add('fade-out');
+        await new Promise(r => setTimeout(r, 600));
+        if (skipped) return;
 
-                // 5. Animasyon bittikten sonra kodu arka plandan temizle
-                setTimeout(() => splash.remove(), 500);
-            };
+        splash.classList.add('fade-out');
+        setTimeout(() => splash.remove(), 500);
+    };
 
-            runAnimation();
-        });
-    </script>
+    runAnimation();
+});
+</script>
 
     <!-- Uygulama Başlatıcı (Bootstrap) -->
     <script>
