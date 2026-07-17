@@ -2,72 +2,47 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   const dnd = useDragDrop();
   const isDragged = draggable && dnd && dnd.draggedId === book.id;
   const over = draggable && dnd && dnd.overTarget && dnd.overTarget.type === 'book' && dnd.overTarget.id === book.id ? dnd.overTarget.placement : null;
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const startPosRef = useRef({ x: 0, y: 0 });
-  const cardRef = useRef(null);
 
   const handlePointerDown = (e) => {
     if (!draggable || !dnd) return;
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
-    startPosRef.current = { x: e.clientX, y: e.clientY };
     dnd.startDrag(book.id, e);
   };
 
   const handlePointerMove = (e) => {
     if (!draggable || !dnd || dnd.draggedId !== book.id) return;
     e.stopPropagation();
-    const dy = e.clientY - startPosRef.current.y;
-    setDragOffset({ x: 0, y: dy });
-    // Orijinal pozisyonu hesaplayıp gönder
-    const fakeEvent = {
-      ...e,
-      clientX: e.clientX,
-      clientY: e.clientY - dy, // Kartın orijinal konumundaki Y değeri
-    };
-    dnd.updateDrag(fakeEvent);
+    dnd.updateDrag(e);
   };
 
   const handlePointerUp = (e) => {
     if (!draggable || !dnd || dnd.draggedId !== book.id) return;
     e.stopPropagation();
-    setDragOffset({ x: 0, y: 0 });
     dnd.endDrag();
   };
 
   return (
     <div
-      ref={cardRef}
       id={`book-node-${book.id}`}
       data-book-target={draggable ? book.id : undefined}
       data-book-target-folder={draggable ? (book.folderId === null ? 'root' : book.folderId) : undefined}
       style={{
         marginTop: over === 'after' ? '2rem' : '0.375rem',
         marginBottom: over === 'before' ? '2rem' : '0.375rem',
-        transition: isDragged ? 'none' : 'margin 0.2s ease, box-shadow 0.2s ease',
-        transform: isDragged ? `translateY(${dragOffset.y}px)` : 'none',
-        zIndex: isDragged ? 50 : 'auto',
-        position: isDragged ? 'relative' : undefined,
-        boxShadow: isDragged ? '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' : undefined,
+        transition: 'margin 0.2s ease, opacity 0.2s ease, transform 0.2s ease',
       }}
-      className={`group flex items-center justify-between p-3 bg-white border rounded-xl hover:border-zinc-300 ml-2 sm:ml-4 ${isDragged ? 'opacity-100 scale-105 border-zinc-400' : 'border-zinc-100 shadow-sm'} ${over === 'before' ? 'border-t-2 border-t-zinc-900' : ''} ${over === 'after' ? 'border-b-2 border-b-zinc-900' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing touch-none select-none' : ''}`}
+      className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${isDragged ? 'opacity-40' : 'border-zinc-100'} ${over === 'before' ? 'border-t-2 border-t-zinc-900' : ''} ${over === 'after' ? 'border-b-2 border-b-zinc-900' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing touch-none select-none' : ''}`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={() => { 
-        if (draggable && dnd) {
-          setDragOffset({ x: 0, y: 0 });
-          dnd.cancelDrag(); 
-        }
-      }}
+      onPointerCancel={() => { if (draggable && dnd) dnd.cancelDrag(); }}
     >
       <div
         className="flex-1 flex items-center gap-3 overflow-hidden"
         onClick={(e) => {
-          if (!isDragged) {
-            e.stopPropagation();
-            onOpen(book.id);
-          }
+          e.stopPropagation();
+          onOpen(book.id);
         }}
       >
         <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
