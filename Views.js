@@ -5,36 +5,64 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const startPosRef = useRef({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
-  const startTimerRef = useRef(null);
-  const movedRef = useRef(false);
+  const longPressTimerRef = useRef(null);
+  const hasMovedRef = useRef(false);
+  const pointerIdRef = useRef(null);
+
+  // Temizlik
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
 
   const handlePointerDown = (e) => {
     if (!draggable || !dnd) return;
     e.stopPropagation();
-    e.currentTarget.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    
+    // Pointer capture - mobil güvenli
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch(err) {
+      // Fallback için ignore
+    }
+    
+    pointerIdRef.current = e.pointerId;
     startPosRef.current = { x: e.clientX, y: e.clientY };
-    movedRef.current = false;
+    hasMovedRef.current = false;
     isDraggingRef.current = false;
     
-    // 200ms bekle, hareket ederse sürükleme başlat
-    startTimerRef.current = setTimeout(() => {
-      if (movedRef.current) {
-        isDraggingRef.current = true;
-        dnd.startDrag(book.id, e);
-      }
-    }, 200);
+    // Long press: 300ms basılı tutunca sürükleme başlar
+    longPressTimerRef.current = setTimeout(() => {
+      isDraggingRef.current = true;
+      dnd.startDrag(book.id, e);
+    }, 300);
   };
 
   const handlePointerMove = (e) => {
     if (!draggable || !dnd) return;
     e.stopPropagation();
+    
     const dx = Math.abs(e.clientX - startPosRef.current.x);
     const dy = Math.abs(e.clientY - startPosRef.current.y);
     
+    // 5px'den fazla hareket varsa
     if (dx > 5 || dy > 5) {
-      movedRef.current = true;
+      hasMovedRef.current = true;
+      
+      // Eğer long press henüz tetiklenmediyse, hareketle birlikte hemen sürüklemeyi başlat
+      if (!isDraggingRef.current && longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+        isDraggingRef.current = true;
+        dnd.startDrag(book.id, e);
+      }
     }
     
+    // Sürükleme aktifse kartı hareket ettir
     if (isDraggingRef.current && dnd.draggedId === book.id) {
       const offsetY = e.clientY - startPosRef.current.y;
       setDragOffset({ x: 0, y: offsetY });
@@ -46,21 +74,45 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
     if (!draggable || !dnd) return;
     e.stopPropagation();
     
-    if (startTimerRef.current) {
-      clearTimeout(startTimerRef.current);
-      startTimerRef.current = null;
+    // Long press timer'ı temizle
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    
+    // Pointer capture'ı serbest bırak
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch(err) {
+      // Ignore
     }
     
     if (isDraggingRef.current && dnd.draggedId === book.id) {
+      // Sürükleme bitti
       setDragOffset({ x: 0, y: 0 });
       dnd.endDrag();
-    } else {
-      // Kısa tıklama - kitap detayını aç
+    } else if (!hasMovedRef.current) {
+      // Kısa tıklama - detayı aç
       onOpen(book.id);
     }
     
     isDraggingRef.current = false;
-    movedRef.current = false;
+    hasMovedRef.current = false;
+    pointerIdRef.current = null;
+  };
+
+  const handlePointerCancel = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (draggable && dnd) {
+      setDragOffset({ x: 0, y: 0 });
+      dnd.cancelDrag();
+    }
+    isDraggingRef.current = false;
+    hasMovedRef.current = false;
+    pointerIdRef.current = null;
   };
 
   return (
@@ -80,17 +132,14 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
         userSelect: 'none',
         WebkitUserSelect: 'none',
         touchAction: draggable ? 'none' : 'auto',
+        msTouchAction: draggable ? 'none' : 'auto',
       }}
       className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${!isDragged ? 'border-zinc-100' : ''} ${draggable && !isDragged ? 'cursor-grab active:cursor-grabbing select-none' : ''} ${isDragged ? 'cursor-grabbing border-zinc-300' : ''}`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={() => { 
-        if (startTimerRef.current) clearTimeout(startTimerRef.current);
-        if (draggable && dnd) { setDragOffset({ x: 0, y: 0 }); dnd.cancelDrag(); }
-        isDraggingRef.current = false;
-        movedRef.current = false;
-      }}
+      onPointerCancel={handlePointerCancel}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <div className="flex-1 flex items-center gap-3 overflow-hidden pointer-events-none">
         <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
