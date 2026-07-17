@@ -62,45 +62,12 @@ const SearchAddModal = ({ isOpen, onClose, folderId }) => {
     }];
   };
 
- const fetchByTitle = async (q, publisher) => {
-    // 1. Önce eski sistem (Open Library) yerine, Proxy ile yerel kitap sitesinden ISBN kazımayı deniyoruz
-    try {
-      // Aranacak metni URL formatına uygun hale getiriyoruz
-      const cleanQ = encodeURIComponent(q.trim());
-      
-      // Kitapyurdu üzerinde arama yapacak URL (AllOrigins CORS Proxy kullanarak)
-      const targetUrl = `https://www.kitapyurdu.com/index.php?route=product/search&filter_name=${cleanQ}`;
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-      
-      const res = await fetch(proxyUrl);
-      if (res.ok) {
-        const data = await res.json();
-        const html = data.contents;
-        
-        // HTML içinde 978 ile başlayan 13 haneli ilk ISBN numarasını bul (Regex)
-        const isbnMatch = html.match(/978[0-9]{10}/);
-        
-        if (isbnMatch && isbnMatch[0]) {
-          const scrapedIsbn = isbnMatch[0];
-          console.log("Arka planda yakalanan ISBN:", scrapedIsbn);
-          
-          // Bulduğumuz kesin ISBN'i, senin zaten süper çalışan ISBN arama fonksiyonuna gönderiyoruz
-          const enriched = await fetchByIsbn(scrapedIsbn);
-          if (enriched && enriched.length > 0) {
-            return enriched; // Direkt kitabı döndür
-          }
-        }
-      }
-    } catch (e) {
-      console.log("Scraping işlemi başarısız, yedek yönteme geçiliyor...", e);
-    }
-
-    // 2. Eğer scraping başarısız olursa veya ISBN bulamazsa, mecburen Open Library'nin kötü metin aramasına düşsün (Yedek plan)
+  const fetchByTitle = async (q, publisher) => {
     let searchQ = q || '';
     if (publisher && publisher.trim()) {
       searchQ = searchQ ? `${searchQ} publisher:"${publisher.trim()}"` : `publisher:"${publisher.trim()}"`;
     }
-    const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(searchQ)}&language=tur&sort=editions&limit=8&fields=key,title,author_name,first_publish_year,cover_i,cover_edition_key,edition_key,isbn,publisher`);
+    const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(searchQ)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,cover_edition_key,edition_key,isbn,publisher`);
     if (!res.ok) throw new Error();
     const json = await res.json();
     const docs = json.docs || [];
@@ -113,6 +80,17 @@ const SearchAddModal = ({ isOpen, onClose, folderId }) => {
           const enriched = await fetchByIsbn(isbnCandidate);
           if (enriched.length && (enriched[0].publisher !== 'Yayınevi Belirtilmemiş' || enriched[0].pageCount)) {
             return { ...enriched[0], title: enriched[0].title || doc.title, author: enriched[0].author || doc.author_name?.join(', '), cover: enriched[0].cover || cover, year: enriched[0].year || doc.first_publish_year };
+          }
+        } catch (e) {}
+      }
+      const editionKey = doc.cover_edition_key || (doc.edition_key && doc.edition_key[0]);
+      if (editionKey) {
+        try {
+          const eRes = await fetch(`https://openlibrary.org/books/${editionKey}.json`);
+          if (eRes.ok) {
+            const e = await eRes.json();
+            const isbn = (e.isbn_13 && e.isbn_13[0]) || (e.isbn_10 && e.isbn_10[0]) || '';
+            return { isbn, title: e.title || doc.title, author: doc.author_name?.join(', '), publisher: (e.publishers && e.publishers.join(', ')) || (doc.publisher && doc.publisher[0]) || 'Yayınevi Belirtilmemiş', pageCount: e.number_of_pages || 0, year: (e.publish_date && e.publish_date.match(/\d{4}/)?.[0]) || doc.first_publish_year || '', price: '', cover };
           }
         } catch (e) {}
       }
