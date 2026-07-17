@@ -31,7 +31,6 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
 
   return (
     <>
-      {/* Orjinal kart - soluk */}
       <div
         id={`book-node-${book.id}`}
         data-book-target={draggable ? book.id : undefined}
@@ -41,7 +40,7 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
           marginBottom: over === 'before' ? '2rem' : '0.375rem',
           transition: 'margin 0.2s ease, opacity 0.2s ease',
         }}
-        className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${isDragged ? 'opacity-30' : 'border-zinc-100'} ${over === 'before' ? 'border-t-2 border-t-zinc-900' : ''} ${over === 'after' ? 'border-b-2 border-b-zinc-900' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing touch-none select-none' : ''}`}
+        className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${isDragged ? 'opacity-30' : 'border-zinc-100'} ${draggable ? 'cursor-grab active:cursor-grabbing touch-none select-none' : ''}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -75,7 +74,6 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
         </div>
       </div>
 
-      {/* Sürüklenen klon kart - parmakla hareket eder */}
       {isDragged && (
         <div
           ref={cardRef}
@@ -89,9 +87,9 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
             marginLeft: '0.5rem',
             marginRight: '0.5rem',
             pointerEvents: 'none',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1)',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.05)',
           }}
-          className="flex items-center justify-between p-3 bg-white border-2 border-zinc-900 rounded-xl"
+          className="flex items-center justify-between p-3 bg-white border border-zinc-200 rounded-xl"
         >
           <div className="flex-1 flex items-center gap-3 overflow-hidden">
             <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
