@@ -8,14 +8,129 @@
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#ffffff" media="(max-width: 639px)">
     <meta name="theme-color" content="#18181b" media="(min-width: 640px)">
-    <link rel="apple-touch-icon" href="./icon.png">
+    <link rel="apple-touch-icon" href="./icon.png?v=2">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="./styles.css">
+
+    <style>
+        /* Animasyonlu Açılış Ekranı Tasarımı */
+        #custom-splash {
+            position: fixed;
+            inset: 0;
+            background-color: #ffffff;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.4s ease-out, visibility 0.4s ease-out;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .splash-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        #splash-title {
+            color: #18181b;
+            font-weight: 800;
+            font-size: 2.8rem;
+            letter-spacing: 0.4rem;
+            min-height: 3.5rem;
+        }
+
+        #splash-subtitle {
+            color: #52525b; /* Daha yumuşak bir gri tonu */
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: 0.1rem;
+            min-height: 1.5rem;
+        }
+
+        /* Yanıp sönen daktilo imleci */
+        .cursor::after {
+            content: '|';
+            color: #3b82f6; /* Mavi tonlarında imleç */
+            animation: blink 0.8s step-end infinite;
+            margin-left: 4px;
+        }
+
+        @keyframes blink {
+            from, to { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Kaybolma efekti */
+        .fade-out {
+            opacity: 0;
+            visibility: hidden;
+        }
+    </style>
 </head>
 <body class="bg-white sm:bg-zinc-100 flex justify-center text-zinc-900 overflow-x-hidden">
+    
+    <!-- Özel Açılış Ekranı -->
+    <div id="custom-splash">
+        <div class="splash-content">
+            <div id="splash-title"></div>
+            <div id="splash-subtitle"></div>
+        </div>
+    </div>
+
     <div id="root" class="w-full h-full sm:max-w-md bg-white sm:shadow-2xl relative overflow-hidden flex flex-col h-[100dvh]"></div>
 
+    <!-- Daktilo Animasyonu Mantığı -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const splash = document.getElementById('custom-splash');
+            const titleEl = document.getElementById('splash-title');
+            const subtitleEl = document.getElementById('splash-subtitle');
+
+            const titleText = "Archive";
+            const subtitleText = "Kütüphanen artık cebinde...";
+
+            // İnsan hızıyla rastgele yazma fonksiyonu
+            const typeText = async (element, text, minSpeed, maxSpeed) => {
+                element.classList.add('cursor');
+                for (let i = 0; i < text.length; i++) {
+                    element.innerHTML = text.substring(0, i + 1);
+                    // Belirlenen aralıkta rastgele bir gecikme (insan hızı efekti)
+                    const delay = Math.random() * (maxSpeed - minSpeed) + minSpeed;
+                    await new Promise(r => setTimeout(r, delay));
+                }
+            };
+
+            const runAnimation = async () => {
+                // 1. "Archive" yazısını biraz tok ve vurgulu yaz (100ms - 250ms arası)
+                await typeText(titleEl, titleText, 100, 250);
+
+                // 2. Yazı bittikten sonra imleç 1.2 saniye boyunca boşta yanıp sönsün
+                await new Promise(r => setTimeout(r, 1200));
+
+                // 3. Üstteki imleci kaldır, alt satıra geç
+                titleEl.classList.remove('cursor');
+                
+                // 4. Alt yazıyı biraz daha seri bir şekilde yaz (40ms - 100ms arası)
+                await typeText(subtitleEl, subtitleText, 40, 100);
+
+                // 5. Yazı bittikten sonra okunması için yarım saniye bekle
+                await new Promise(r => setTimeout(r, 600));
+
+                // 6. Ekranı hızlı ve yumuşak bir şekilde erit (fade-out)
+                splash.classList.add('fade-out');
+
+                // 7. Animasyon bittikten sonra arka planda boşuna yer kaplamasın diye sil
+                setTimeout(() => splash.remove(), 500);
+            };
+
+            runAnimation();
+        });
+    </script>
+
+    <!-- Uygulama Başlatıcı (Bootstrap) -->
     <script>
         function loadScript(src) {
             return new Promise((resolve, reject) => {
@@ -68,7 +183,6 @@
                 await loadScript('https://unpkg.com/@babel/standalone/babel.min.js');
                 if (!window.Babel) throw new Error('Babel yüklendi ama window.Babel oluşmadı');
 
-                // Yeni modüler yapımız: 5 dosyayı sırayla çekip birleştiriyoruz
                 const files = [
                     './context.js',
                     './SearchModal.js',
