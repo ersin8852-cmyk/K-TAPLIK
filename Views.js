@@ -8,11 +8,35 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
       id={`book-node-${book.id}`}
       data-book-target={draggable ? book.id : undefined}
       data-book-target-folder={draggable ? (book.folderId === null ? 'root' : book.folderId) : undefined}
-      className={`group flex items-center justify-between p-3 mb-1.5 bg-white border rounded-xl shadow-sm hover:border-zinc-300 transition-all ml-2 sm:ml-4 ${isDragged ? 'opacity-30' : 'border-zinc-100'} ${over === 'before' ? 'border-t-2 border-t-zinc-900' : ''} ${over === 'after' ? 'border-b-2 border-b-zinc-900' : ''}`}
+      className={`group flex items-center justify-between p-3 mb-1.5 bg-white border rounded-xl shadow-sm hover:border-zinc-300 transition-all ml-2 sm:ml-4 
+        ${isDragged ? 'opacity-30 scale-95' : 'border-zinc-100'} 
+        ${over === 'before' ? 'mb-6 border-t-2 border-t-zinc-900' : ''} 
+        ${over === 'after' ? 'mt-6 border-b-2 border-b-zinc-900' : ''}
+        ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      onPointerDown={(e) => {
+        if (draggable && dnd) {
+          e.preventDefault();
+          dnd.startDrag(book.id, e);
+        }
+      }}
+      onPointerMove={(e) => {
+        if (draggable && dnd && dnd.draggedId === book.id) {
+          e.stopPropagation();
+          dnd.updateDrag(e);
+        }
+      }}
+      onPointerUp={(e) => {
+        if (draggable && dnd && dnd.draggedId === book.id) {
+          e.stopPropagation();
+          dnd.endDrag();
+        }
+      }}
+      onPointerCancel={() => {
+        if (draggable && dnd) dnd.cancelDrag();
+      }}
     >
       <div
-        className="flex-1 cursor-pointer flex items-center gap-3 overflow-hidden"
-        onClick={() => onOpen(book.id)}
+        className="flex-1 flex items-center gap-3 overflow-hidden pointer-events-none"
       >
         <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
           {book.cover ? (
@@ -39,19 +63,6 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
           <span className="ml-auto w-2 h-2 rounded-full bg-zinc-900 shrink-0" title="Kütüphanemde"></span>
         )}
       </div>
-      {draggable && (
-        <span
-          className="p-2 -mr-1 text-zinc-300 hover:text-zinc-600 cursor-grab active:cursor-grabbing touch-none shrink-0"
-          title="Sürükle"
-          onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dnd.startDrag(book.id, e); }}
-          onPointerMove={(e) => { if (dnd.draggedId === book.id) { e.stopPropagation(); dnd.updateDrag(e); } }}
-          onPointerUp={(e) => { if (dnd.draggedId === book.id) { e.stopPropagation(); dnd.endDrag(); } }}
-          onPointerCancel={() => dnd.cancelDrag()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <GripVertical size={16} />
-        </span>
-      )}
     </div>
   );
 };
