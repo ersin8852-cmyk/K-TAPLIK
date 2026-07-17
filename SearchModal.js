@@ -1,6 +1,3 @@
-import React, { useState, useEffect, useRef } from 'react';
-// Gerekli iconları (Search, Camera, X, BookOpen, Plus, WifiOff vb.) kendi projendeki gibi import ettiğini varsayıyorum.
-
 const SearchAddModal = ({ isOpen, onClose, folderId }) => {
   const { addBook, showToast } = useArchive();
   const [query, setQuery] = useState('');
@@ -70,10 +67,7 @@ const SearchAddModal = ({ isOpen, onClose, folderId }) => {
     if (publisher && publisher.trim()) {
       searchQ = searchQ ? `${searchQ} publisher:"${publisher.trim()}"` : `publisher:"${publisher.trim()}"`;
     }
-    
-    // API adresi filtrelenmiş haliyle güncellendi
-    const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(searchQ)}&language=tur&sort=editions&limit=8&fields=key,title,author_name,first_publish_year,cover_i,cover_edition_key,edition_key,isbn,publisher`);
-    
+    const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(searchQ)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,cover_edition_key,edition_key,isbn,publisher`);
     if (!res.ok) throw new Error();
     const json = await res.json();
     const docs = json.docs || [];
@@ -184,5 +178,3 @@ const SearchAddModal = ({ isOpen, onClose, folderId }) => {
     </div>
   );
 };
-
-export default SearchAddModal;
