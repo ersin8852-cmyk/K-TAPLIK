@@ -19,7 +19,13 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
     e.stopPropagation();
     const dy = e.clientY - startPosRef.current.y;
     setDragOffset({ x: 0, y: dy });
-    dnd.updateDrag(e);
+    // Orijinal pozisyonu hesaplayıp gönder
+    const fakeEvent = {
+      ...e,
+      clientX: e.clientX,
+      clientY: e.clientY - dy, // Kartın orijinal konumundaki Y değeri
+    };
+    dnd.updateDrag(fakeEvent);
   };
 
   const handlePointerUp = (e) => {
