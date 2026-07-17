@@ -42,6 +42,17 @@
             min-height: 3.5rem;
         }
 
+        /* Fade-in (Yumuşak Belirme) Efekti */
+        .fade-letter {
+            opacity: 0;
+            display: inline-block;
+            animation: fadeInLetter 1s ease-out forwards;
+        }
+
+        @keyframes fadeInLetter {
+            to { opacity: 1; }
+        }
+
         #splash-subtitle {
             color: #52525b;
             font-size: 1rem;
@@ -53,7 +64,7 @@
         /* Yanıp sönen siyah daktilo imleci */
         .cursor::after {
             content: '|';
-            color: #18181b; /* İmleç rengi siyah yapıldı */
+            color: #18181b; 
             animation: blink 0.8s step-end infinite;
             margin-left: 4px;
         }
@@ -82,7 +93,7 @@
 
     <div id="root" class="w-full h-full sm:max-w-md bg-white sm:shadow-2xl relative overflow-hidden flex flex-col h-[100dvh]"></div>
 
-    <!-- Daktilo Animasyonu Mantığı -->
+    <!-- Animasyon Mantığı -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const splash = document.getElementById('custom-splash');
@@ -92,40 +103,44 @@
             const titleText = "Archive";
             const subtitleText = "Kütüphanen artık cebinde...";
 
-            // İnsan hızıyla rastgele yazma fonksiyonu
+            // İnsan hızıyla rastgele yazma fonksiyonu (Alt yazı için)
             const typeText = async (element, text, minSpeed, maxSpeed) => {
                 element.classList.add('cursor');
                 for (let i = 0; i < text.length; i++) {
                     element.innerHTML = text.substring(0, i + 1);
-                    // Belirlenen aralıkta rastgele bir gecikme (insan hızı efekti)
                     const delay = Math.random() * (maxSpeed - minSpeed) + minSpeed;
                     await new Promise(r => setTimeout(r, delay));
                 }
             };
 
             const runAnimation = async () => {
-                // 0. PWA kendi ikonunu gösterirken animasyonun kaçmamasını sağlamak için tam 1 saniye (1000ms) bekle
-                await new Promise(r => setTimeout(r, 1350));
+                // 0. Uygulama açılışındaki o ilk siyah ikonun geçmesi için 1 saniye (1000ms) bekle
+                await new Promise(r => setTimeout(r, 1000));
 
-                // 1. "Archive" yazısını biraz tok ve vurgulu yaz (100ms - 250ms arası)
-                await typeText(titleEl, titleText, 100, 250);
+                // 1. "Archive" kelimesini harf harf yumuşakça ekrana düşür
+                titleEl.innerHTML = '';
+                for (let i = 0; i < titleText.length; i++) {
+                    const span = document.createElement('span');
+                    span.textContent = titleText[i];
+                    span.className = 'fade-letter';
+                    // Her harfin gelişine ufak bir gecikme ekliyoruz (sırayla belirmesi için)
+                    span.style.animationDelay = `${i * 0.15}s`;
+                    titleEl.appendChild(span);
+                }
 
-                // 2. Yazı bittikten sonra imleç 1.2 saniye boyunca boşta yanıp sönsün
-                await new Promise(r => setTimeout(r, 1200));
-
-                // 3. Üstteki imleci kaldır, alt satıra geç
-                titleEl.classList.remove('cursor');
+                // Harflerin tamamen belirmesini izlemek için 1.5 saniye bekle
+                await new Promise(r => setTimeout(r, 1500));
                 
-                // 4. Alt yazıyı biraz daha seri bir şekilde yaz (40ms - 100ms arası)
-                await typeText(subtitleEl, subtitleText, 40, 100);
+                // 2. Alt yazıyı daktilo hızıyla ve imleçle yaz
+                await typeText(subtitleEl, subtitleText, 40, 90);
 
-                // 5. Yazı bittikten sonra okunması için yarım saniye bekle
+                // 3. Yazı bittikten sonra tam okunması için yarım saniye bekle
                 await new Promise(r => setTimeout(r, 600));
 
-                // 6. Ekranı hızlı ve yumuşak bir şekilde erit (fade-out)
+                // 4. Ekranı hızlı ve yumuşak bir şekilde erit (fade-out)
                 splash.classList.add('fade-out');
 
-                // 7. Animasyon bittikten sonra arka planda boşuna yer kaplamasın diye sil
+                // 5. Animasyon bittikten sonra kodu arka plandan temizle
                 setTimeout(() => splash.remove(), 500);
             };
 
