@@ -5,10 +5,27 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const startPosRef = useRef({ x: 0, y: 0 });
   const cardRef = useRef(null);
+  const ghostRef = useRef(null);
+
+  // Siyah kutucuğu engelle
+  useEffect(() => {
+    if (isDragged) {
+      const img = new Image();
+      img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=';
+      
+      const handleDragStart = (e) => {
+        e.dataTransfer.setDragImage(img, 0, 0);
+      };
+      
+      document.addEventListener('dragstart', handleDragStart);
+      return () => document.removeEventListener('dragstart', handleDragStart);
+    }
+  }, [isDragged]);
 
   const handlePointerDown = (e) => {
     if (!draggable || !dnd) return;
     e.stopPropagation();
+    e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     startPosRef.current = { x: e.clientX, y: e.clientY };
     dnd.startDrag(book.id, e);
@@ -39,17 +56,21 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
           marginTop: over === 'after' ? '2rem' : '0.375rem',
           marginBottom: over === 'before' ? '2rem' : '0.375rem',
           transition: 'margin 0.2s ease, opacity 0.2s ease',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          touchAction: draggable ? 'none' : 'auto',
         }}
         className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${isDragged ? 'opacity-30' : 'border-zinc-100'} ${draggable ? 'cursor-grab active:cursor-grabbing touch-none select-none' : ''}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={() => { if (draggable && dnd) { setDragOffset({ x: 0, y: 0 }); dnd.cancelDrag(); } }}
+        onDragStart={(e) => e.preventDefault()}
       >
         <div className="flex-1 flex items-center gap-3 overflow-hidden">
           <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
             {book.cover ? (
-              <img src={book.cover} alt="" className="w-full h-full object-cover" />
+              <img src={book.cover} alt="" draggable="false" className="w-full h-full object-cover" />
             ) : (
               <BookOpen size={16} />
             )}
@@ -94,7 +115,7 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
           <div className="flex-1 flex items-center gap-3 overflow-hidden">
             <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
               {book.cover ? (
-                <img src={book.cover} alt="" className="w-full h-full object-cover" />
+                <img src={book.cover} alt="" draggable="false" className="w-full h-full object-cover" />
               ) : (
                 <BookOpen size={16} />
               )}
