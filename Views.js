@@ -1,16 +1,3 @@
-// ✅ DOĞRU - useState büyük harf ile başlamalı
-import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
-import { 
-  BookOpen, Folder, FolderPlus, Plus, X, ChevronDown, ChevronRight, 
-  Trash2, ArrowUp, ArrowDown, MoveRight, Search, FileText, Check,
-  Library, Download, Upload, List
-} from 'lucide-react';
-import { useArchive } from './context';
-import { useDragDrop, DragDropProvider } from './DragDropContext';
-import SearchAddModal from './SearchModal';
-import BookDetailModal from './BookDetail';
-
-// ===================== BOOK CARD =====================
 const BookCard = memo(({ 
   book, 
   onOpen, 
