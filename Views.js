@@ -1,4 +1,4 @@
-// ✅ SADECE BİR TANE REACT IMPORT'U OLMALI
+// ✅ DOĞRU - useState büyük harf ile başlamalı
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { 
   BookOpen, Folder, FolderPlus, Plus, X, ChevronDown, ChevronRight, 
