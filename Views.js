@@ -1,3 +1,12 @@
+Kral haklısın, bazen araya karışan görünmez boşluk karakterleri (non-breaking space) veya az önceki gibi ufak sözdizimi hataları tüm React uygulamasının derlenmesini durdurup beyaz ekran/yüklenemedi hatasına sebep olabiliyor.
+
+Senin için tüm o gizli hatalı boşluk karakterlerini temizledim, yorum satırlarını düzelttim ve "Pro" moddaki sürükleme-bırakma iyileştirmelerini (titreme engelleme, boşluk açılma, siyah kutu iptali) tam olarak entegre ettim.
+
+Başka hiçbir şeye dokunmadan, elindeki `Views.js` (veya bu kodları tuttuğun dosyanın) içeriğinin **tamamını silip** aşağıdaki kodu baştan sona kopyala-yapıştır yapabilirsin. (Kodu kopyalarken sağ üstteki "Kopyala" butonunu kullanırsan gizli karakter hatası almazsın).
+
+İşte baştan sona temiz ve eksiksiz kod:
+
+```javascript
 const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, folderPath = null, onNavigate = null }) => {
   const dnd = useDragDrop();
   const isDragged = draggable && dnd && dnd.draggedId === book.id;
@@ -117,7 +126,7 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
         boxShadow: isDragged ? '0 15px 30px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -5px rgba(0, 0, 0, 0.1)' : undefined,
         userSelect: 'none',
         WebkitUserSelect: 'none',
-        WebkitTouchCallout: 'none', // PRO FIX 1: O siyah bağlantı menüsünü öldürür
+        WebkitTouchCallout: 'none', 
         touchAction: draggable ? 'none' : 'auto',
         msTouchAction: draggable ? 'none' : 'auto',
         willChange: 'margin, transform',
@@ -127,12 +136,12 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
-      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} // PRO FIX 2: Uzun basma olayını engeller
-      onDragStart={(e) => e.preventDefault()} // PRO FIX 3: Tarayıcının kendi siyah "ghost" sürüklemesini engeller
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} 
+      onDragStart={(e) => e.preventDefault()} 
     >
       <div className="flex-1 flex items-center gap-3 overflow-hidden pointer-events-none">
         <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
-         {book.cover ? (
+          {book.cover ? (
             <img src={book.cover} alt="" draggable="false" className="w-full h-full object-cover pointer-events-none select-none" />
           ) : (
             <BookOpen size={16} />
@@ -162,6 +171,7 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
       </div>
     </div>
   );
+};
 
 const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpenBook, isLibraryView = false, draggable = false }) => {
   const { addFolder, reorderFolder, deleteFolder } = useArchive();
@@ -656,3 +666,5 @@ const StatsView = () => {
     </div>
   );
 };
+
+```
