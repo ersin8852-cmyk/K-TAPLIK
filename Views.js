@@ -103,11 +103,13 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   return (
     <div
       id={`book-node-${book.id}`}
-      data-book-target={draggable ? book.id : undefined}
-      data-book-target-folder={draggable ? (book.folderId === null ? 'root' : book.folderId) : undefined}
+      // DÜZELTME 1: Sürüklenen kart o an için drop hedefi olmaktan çıkarıldı
+      data-book-target={draggable && !isDragged ? book.id : undefined}
+      data-book-target-folder={draggable && !isDragged ? (book.folderId === null ? 'root' : book.folderId) : undefined}
       style={{
-        marginTop: over === 'after' ? '2rem' : '0.375rem',
-        marginBottom: over === 'before' ? '2rem' : '0.375rem',
+        // DÜZELTME 2: Boşluk mantığı tersine çevrildi ('before' ise üstten, 'after' ise alttan boşluk açılacak)
+        marginTop: over === 'before' ? '2.5rem' : '0.375rem',
+        marginBottom: over === 'after' ? '2.5rem' : '0.375rem',
         transition: isDragged ? 'none' : 'margin 0.2s ease, opacity 0.2s ease, transform 0.2s ease',
         transform: isDragged ? `translateY(${dragOffset.y}px)` : 'none',
         opacity: isDragged ? 0.9 : 1,
@@ -118,6 +120,8 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
         WebkitUserSelect: 'none',
         touchAction: draggable ? 'none' : 'auto',
         msTouchAction: draggable ? 'none' : 'auto',
+        // DÜZELTME 3: Fare olaylarının hayalet gibi kartın içinden geçip alttaki kartları görmesini sağladık
+        pointerEvents: isDragged ? 'none' : 'auto',
       }}
       className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${!isDragged ? 'border-zinc-100' : ''} ${draggable && !isDragged ? 'cursor-grab active:cursor-grabbing select-none' : ''} ${isDragged ? 'cursor-grabbing border-zinc-300' : ''}`}
       onPointerDown={handlePointerDown}
