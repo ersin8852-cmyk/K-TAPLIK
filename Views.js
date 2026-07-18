@@ -1,12 +1,3 @@
-Kral haklısın, bazen araya karışan görünmez boşluk karakterleri (non-breaking space) veya az önceki gibi ufak sözdizimi hataları tüm React uygulamasının derlenmesini durdurup beyaz ekran/yüklenemedi hatasına sebep olabiliyor.
-
-Senin için tüm o gizli hatalı boşluk karakterlerini temizledim, yorum satırlarını düzelttim ve "Pro" moddaki sürükleme-bırakma iyileştirmelerini (titreme engelleme, boşluk açılma, siyah kutu iptali) tam olarak entegre ettim.
-
-Başka hiçbir şeye dokunmadan, elindeki `Views.js` (veya bu kodları tuttuğun dosyanın) içeriğinin **tamamını silip** aşağıdaki kodu baştan sona kopyala-yapıştır yapabilirsin. (Kodu kopyalarken sağ üstteki "Kopyala" butonunu kullanırsan gizli karakter hatası almazsın).
-
-İşte baştan sona temiz ve eksiksiz kod:
-
-```javascript
 const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, folderPath = null, onNavigate = null }) => {
   const dnd = useDragDrop();
   const isDragged = draggable && dnd && dnd.draggedId === book.id;
@@ -666,5 +657,3 @@ const StatsView = () => {
     </div>
   );
 };
-
-```
