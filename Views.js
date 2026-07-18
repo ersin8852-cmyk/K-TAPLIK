@@ -18,12 +18,11 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   const handlePointerDown = (e) => {
     e.stopPropagation();
     
-    // Tıklama hesabı için pozisyon kaydını draggable olmasa bile yapıyoruz
     startPosRef.current = { x: e.clientX, y: e.clientY };
     hasMovedRef.current = false;
     isDraggingRef.current = false;
 
-    if (!draggable || !dnd) return; // Sürükleme yoksa burada kes
+    if (!draggable || !dnd) return; 
     
     e.preventDefault();
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch(err) {}
@@ -46,7 +45,7 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
       hasMovedRef.current = true;
     }
 
-    if (!draggable || !dnd) return; // Sürükleme işlemleri yoksa burada kes
+    if (!draggable || !dnd) return; 
     
     if (hasMovedRef.current && !isDraggingRef.current && longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
@@ -70,12 +69,11 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
       longPressTimerRef.current = null;
     }
 
-    // Kart hareket etmediyse ve sürüklenmiyorsa TIKLAMA olarak algıla (Tüm kartlar için)
     if (!hasMovedRef.current && !isDraggingRef.current) {
       if (onOpen) onOpen(book.id);
     }
 
-    if (!draggable || !dnd) return; // Sürükleme bitiş resetlemeleri için kes
+    if (!draggable || !dnd) return; 
 
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch(err) {}
     
@@ -141,9 +139,9 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
           {folderPath ? (
              <p 
                className="text-[10px] font-medium text-zinc-500 truncate flex items-center gap-1 mt-1 cursor-pointer pointer-events-auto hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 w-fit px-2 py-0.5 rounded-full"
-               onPointerDown={(e) => e.stopPropagation()} // Kitap sürüklenmesini engeller
+               onPointerDown={(e) => e.stopPropagation()}
                onPointerUp={(e) => { 
-                 e.stopPropagation(); // Kitap detayının açılmasını engeller
+                 e.stopPropagation();
                  if (onNavigate) onNavigate(book); 
                }}
                title="Klasördeki yerine git"
@@ -511,7 +509,6 @@ const LibraryView = () => {
   );
 };
 
-// Box bileşenini dışarı aldık
 const StatBox = ({ label, value }) => (
   <div className="bg-white border border-zinc-100 p-4 rounded-xl flex flex-col justify-center shadow-sm">
     <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-1">{label}</span>
@@ -523,56 +520,18 @@ const StatsView = () => {
   const { books, folders, importData, showToast } = useArchive();
   const fileInputRef = useRef(null);
 
-  // ... (handleExport ve handleImport fonksiyonları aynı kalacak) ...
-
-  const stats = useMemo(() => {
-    const libBooks = books.filter(b => b.inLibrary);
-    const calc = (arr) => {
-      if (arr.length === 0) return null;
-      let totalPages = 0, totalPrice = 0, longest = arr[0], shortest = arr[0];
-      const authors = {};
-      arr.forEach(b => {
-        const p = parseInt(b.pageCount) || 0;
-        totalPages += p; totalPrice += parseFloat(b.price) || 0;
-        if (p > (parseInt(longest.pageCount) || 0)) longest = b;
-        if (p > 0 && (parseInt(shortest.pageCount) || 0) === 0) shortest = b;
-        else if (p > 0 && p < (parseInt(shortest.pageCount) || Infinity)) shortest = b;
-        if (b.author) authors[b.author] = (authors[b.author] || 0) + 1;
-      });
-      let favAuth = '-', max = 0;
-      Object.entries(authors).forEach(([a, c]) => { if (c > max) { max = c; favAuth = a; } });
-      
-      // shortest.pageCount undefined olabileceği için güvenli kontrol ekledik
-      const isShortestValid = (parseInt(shortest.pageCount) || 0) > 0;
-      
-      return { 
-        total: arr.length, 
-        pages: totalPages, 
-        avg: Math.round(totalPages/arr.length)||0, 
-        long: longest.title||'-', 
-        short: isShortestValid ? shortest.title : '-', 
-        fav: favAuth, 
-        price: totalPrice 
-      };
-    };
-    
-    // ... (Kalan stats hesaplamaları aynı) ...
-  }, [books]);
-
-  return (
-    <div className="h-full flex flex-col bg-zinc-50">
-      {/* ... */}
-          <div className="grid grid-cols-2 gap-2">
-            <StatBox label="Toplam Kitap" value={stats.list.total} />
-            <StatBox label="Toplam Sayfa" value={stats.list.pages.toLocaleString()} />
-            <StatBox label="Ort. Sayfa" value={stats.list.avg} />
-            <StatBox label="Favori Yazar" value={stats.list.fav} />
-            {/* ... */}
-          </div>
-      {/* ... diğer bölümlerdeki <Box> kullanımlarını da <StatBox> ile değiştiriyoruz */}
-    </div>
-  );
-};
+  const handleExport = () => {
+    const dataStr = JSON.stringify({ books, folders }, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const date = new Date().toISOString().split('T')[0];
+    a.download = `kutuphane_yedegi_${date}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Yedekleme dosyası cihazınıza indirildi.');
+  };
 
   const handleImport = (e) => {
     const file = e.target.files[0];
@@ -606,8 +565,20 @@ const StatsView = () => {
       });
       let favAuth = '-', max = 0;
       Object.entries(authors).forEach(([a, c]) => { if (c > max) { max = c; favAuth = a; } });
-      return { total: arr.length, pages: totalPages, avg: Math.round(totalPages/arr.length)||0, long: longest.title||'-', short: shortest.pageCount>0?shortest.title:'-', fav: favAuth, price: totalPrice };
+      
+      const isShortestValid = (parseInt(shortest.pageCount) || 0) > 0;
+      
+      return { 
+        total: arr.length, 
+        pages: totalPages, 
+        avg: Math.round(totalPages/arr.length)||0, 
+        long: longest.title||'-', 
+        short: isShortestValid ? shortest.title : '-', 
+        fav: favAuth, 
+        price: totalPrice 
+      };
     };
+    
     const listS = calc(books) || { total: 0, pages: 0, avg: 0, long: '-', short: '-', fav: '-', price: 0 };
     const libS = calc(libBooks) || { total: 0, pages: 0, avg: 0, long: '-', short: '-', fav: '-', price: 0 };
     const read = libBooks.filter(b => b.isRead);
@@ -616,13 +587,6 @@ const StatsView = () => {
     const uPages = unread.reduce((s, b) => s + (parseInt(b.pageCount)||0), 0);
     return { list: listS, lib: libS, read: { rCount: read.length, rPages, uCount: unread.length, uPages } };
   }, [books]);
-
-  const Box = ({ label, value }) => (
-    <div className="bg-white border border-zinc-100 p-4 rounded-xl flex flex-col justify-center shadow-sm">
-      <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-1">{label}</span>
-      <span className="text-lg font-bold text-zinc-900 truncate">{value}</span>
-    </div>
-  );
 
   return (
     <div className="h-full flex flex-col bg-zinc-50">
@@ -633,10 +597,10 @@ const StatsView = () => {
         <section>
           <h2 className="text-sm font-bold text-zinc-700 mb-3 flex items-center gap-1.5"><List size={16} className="text-zinc-400"/> Listelerim</h2>
           <div className="grid grid-cols-2 gap-2">
-            <Box label="Toplam Kitap" value={stats.list.total} />
-            <Box label="Toplam Sayfa" value={stats.list.pages.toLocaleString()} />
-            <Box label="Ort. Sayfa" value={stats.list.avg} />
-            <Box label="Favori Yazar" value={stats.list.fav} />
+            <StatBox label="Toplam Kitap" value={stats.list.total} />
+            <StatBox label="Toplam Sayfa" value={stats.list.pages.toLocaleString()} />
+            <StatBox label="Ort. Sayfa" value={stats.list.avg} />
+            <StatBox label="Favori Yazar" value={stats.list.fav} />
             <div className="col-span-2 bg-white border border-zinc-100 p-3 rounded-xl shadow-sm">
                 <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block mb-1">En Uzun Kitap</span>
                 <span className="text-sm font-semibold text-zinc-800 truncate block">{stats.list.long}</span>
@@ -646,10 +610,10 @@ const StatsView = () => {
         <section>
           <h2 className="text-sm font-bold text-zinc-700 mb-3 flex items-center gap-1.5"><Library size={16} className="text-zinc-400"/> Kütüphanem</h2>
           <div className="grid grid-cols-2 gap-2">
-            <Box label="Toplam Kitap" value={stats.lib.total} />
-            <Box label="Toplam Değer" value={`₺${stats.lib.price.toLocaleString()}`} />
-            <Box label="Toplam Sayfa" value={stats.lib.pages.toLocaleString()} />
-            <Box label="Favori Yazar" value={stats.lib.fav} />
+            <StatBox label="Toplam Kitap" value={stats.lib.total} />
+            <StatBox label="Toplam Değer" value={`₺${stats.lib.price.toLocaleString()}`} />
+            <StatBox label="Toplam Sayfa" value={stats.lib.pages.toLocaleString()} />
+            <StatBox label="Favori Yazar" value={stats.lib.fav} />
           </div>
         </section>
         <section>
@@ -665,8 +629,8 @@ const StatsView = () => {
                 <p className="text-xl font-bold text-white">{stats.read.rPages.toLocaleString()}</p>
               </div>
             </div>
-            <Box label="Okunmayan Kitap" value={stats.read.uCount} />
-            <Box label="Okunmayan Sayfa" value={stats.read.uPages.toLocaleString()} />
+            <StatBox label="Okunmayan Kitap" value={stats.read.uCount} />
+            <StatBox label="Okunmayan Sayfa" value={stats.read.uPages.toLocaleString()} />
           </div>
         </section>
 
