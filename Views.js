@@ -104,24 +104,23 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
     <div
       id={`book-node-${book.id}`}
       // DÜZELTME 1: Sürüklenen kart o an için drop hedefi olmaktan çıkarıldı
-      data-book-target={draggable && !isDragged ? book.id : undefined}
+     data-book-target={draggable && !isDragged ? book.id : undefined}
       data-book-target-folder={draggable && !isDragged ? (book.folderId === null ? 'root' : book.folderId) : undefined}
       style={{
-        // DÜZELTME 2: Boşluk mantığı tersine çevrildi ('before' ise üstten, 'after' ise alttan boşluk açılacak)
-        marginTop: over === 'before' ? '2.5rem' : '0.375rem',
-        marginBottom: over === 'after' ? '2.5rem' : '0.375rem',
-        transition: isDragged ? 'none' : 'margin 0.2s ease, opacity 0.2s ease, transform 0.2s ease',
-        transform: isDragged ? `translateY(${dragOffset.y}px)` : 'none',
+        marginTop: over === 'before' ? '3rem' : '0.375rem',
+        marginBottom: over === 'after' ? '3rem' : '0.375rem',
+        transition: isDragged ? 'none' : 'margin 0.25s cubic-bezier(0.2, 0, 0, 1), transform 0.25s ease, opacity 0.25s ease',
+        transform: isDragged ? `translateY(${dragOffset.y}px) scale(1.02)` : 'translateY(0)',
         opacity: isDragged ? 0.9 : 1,
-        zIndex: isDragged ? 50 : 'auto',
+        zIndex: isDragged ? 999 : 1,
         position: isDragged ? 'relative' : undefined,
-        boxShadow: isDragged ? '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' : undefined,
+        pointerEvents: isDragged ? 'none' : 'auto',
+        boxShadow: isDragged ? '0 15px 30px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -5px rgba(0, 0, 0, 0.1)' : undefined,
         userSelect: 'none',
         WebkitUserSelect: 'none',
         touchAction: draggable ? 'none' : 'auto',
         msTouchAction: draggable ? 'none' : 'auto',
-        // DÜZELTME 3: Fare olaylarının hayalet gibi kartın içinden geçip alttaki kartları görmesini sağladık
-        pointerEvents: isDragged ? 'none' : 'auto',
+        willChange: 'margin, transform',
       }}
       className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${!isDragged ? 'border-zinc-100' : ''} ${draggable && !isDragged ? 'cursor-grab active:cursor-grabbing select-none' : ''} ${isDragged ? 'cursor-grabbing border-zinc-300' : ''}`}
       onPointerDown={handlePointerDown}
