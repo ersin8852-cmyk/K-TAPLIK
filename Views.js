@@ -132,8 +132,7 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
     >
       <div className="flex-1 flex items-center gap-3 overflow-hidden pointer-events-none">
         <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
-          {book.cover ? (
-            {/* PRO FIX 4: Resmin native drag özelliği false yapıldı ve tıklama engellendi */}
+         {book.cover ? (
             <img src={book.cover} alt="" draggable="false" className="w-full h-full object-cover pointer-events-none select-none" />
           ) : (
             <BookOpen size={16} />
