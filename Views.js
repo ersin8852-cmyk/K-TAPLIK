@@ -1,5 +1,157 @@
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+// Kullanılan ikonları projene göre buradan veya kendi kullandığın import'tan alabilirsin.
+import { ChevronDown, ChevronRight, Folder, FolderPlus, Plus, Search, X, Check, Trash2, ArrowUp, ArrowDown, MoveRight, BookOpen, FileText, Library, Download, Upload, List } from 'lucide-react';
+
+// --- YARDIMCI HOOK'LAR VE FONKSİYONLAR ---
+
+// Klasör ağacı, açık klasörler ve yönlendirme işlemlerini merkezi yöneten Hook
+const useTreeManager = (folders, books, searchTerm) => {
+  const [expandedFolders, setExpandedFolders] = useState(new Set());
+
+  const toggleFolder = useCallback((folderId) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
+  }, []);
+
+  // Performans: Tüm klasör ve kitapları ebeveyn ID'lerine göre Map (Dictionary) olarak grupluyoruz.
+  const { groupedFolders, groupedBooks, rootFolders, rootBooks } = useMemo(() => {
+    const fMap = new Map();
+    const bMap = new Map();
+    const rootsF = [];
+    const rootsB = [];
+
+    // Klasörleri Grupla
+    folders.forEach(f => {
+      if (f.parentId === null) {
+        rootsF.push(f);
+      } else {
+        if (!fMap.has(f.parentId)) fMap.set(f.parentId, []);
+        fMap.get(f.parentId).push(f);
+      }
+    });
+
+    // Kitapları Grupla
+    books.forEach(b => {
+      if (b.folderId === null) {
+        rootsB.push(b);
+      } else {
+        if (!bMap.has(b.folderId)) bMap.set(b.folderId, []);
+        bMap.get(b.folderId).push(b);
+      }
+    });
+
+    // Sıralamaları bir kez yap
+    const sortByOrder = (a, b) => a.order - b.order;
+    rootsF.sort(sortByOrder);
+    rootsB.sort(sortByOrder);
+    fMap.forEach(arr => arr.sort(sortByOrder));
+    bMap.forEach(arr => arr.sort(sortByOrder));
+
+    return { groupedFolders: fMap, groupedBooks: bMap, rootFolders: rootsF, rootBooks: rootsB };
+  }, [folders, books]);
+
+  // Türkçe Karakter Duyarlı Arama
+  const filteredBooks = useMemo(() => {
+    if (!searchTerm || searchTerm.trim() === '') return [];
+    const term = searchTerm.toLocaleLowerCase("tr-TR");
+    return books.filter(b => 
+      b.title.toLocaleLowerCase("tr-TR").includes(term) || 
+      (b.author && b.author.toLocaleLowerCase("tr-TR").includes(term))
+    );
+  }, [books, searchTerm]);
+
+  // Klasör yolunu bulma (Sonsuz döngü korumalı)
+  const getFolderPath = useCallback((folderId) => {
+    if (!folderId) return 'Ana Dizin';
+    let current = folders.find(f => f.id === folderId);
+    let path = [];
+    const visited = new Set();
+
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
+      path.unshift(current.name);
+      current = folders.find(f => f.id === current.parentId);
+    }
+    return path.join(' / ') || 'Ana Dizin';
+  }, [folders]);
+
+  return { expandedFolders, setExpandedFolders, toggleFolder, groupedFolders, groupedBooks, rootFolders, rootBooks, filteredBooks, getFolderPath };
+};
+
+
+// --- BİLEŞENLER ---
+
+const EmptyState = ({ icon: Icon, message, subMessage }) => (
+  <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+    <Icon size={48} className="opacity-20" />
+    <p className="text-center text-sm font-medium px-4">
+      {message}
+      {subMessage && <><br/><span className="text-xs font-normal">{subMessage}</span></>}
+    </p>
+  </div>
+);
+
+const HeaderBar = ({ title, subTitle, isSearching, setIsSearching, searchTerm, setSearchTerm, onAddFolder }) => (
+  <div className="p-4 pt-6 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 shadow-sm min-h-[70px] flex items-center">
+    {isSearching ? (
+      <div className="flex w-full items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-2.5 text-zinc-400" size={16} />
+          <input 
+            autoFocus 
+            type="text" 
+            placeholder="Ara..." 
+            className="w-full pl-9 pr-3 py-2 bg-zinc-100 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" 
+            value={searchTerm} 
+            onChange={e => setSearchTerm(e.target.value)} 
+          />
+        </div>
+        <button aria-label="Aramayı Kapat" onClick={() => { setIsSearching(false); setSearchTerm(''); }} className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-xl">
+          <X size={18} />
+        </button>
+      </div>
+    ) : (
+      <div className="flex w-full justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">{title}</h1>
+          {subTitle && <p className="text-[11px] text-zinc-500 mt-0.5 uppercase font-semibold tracking-wider">{subTitle}</p>}
+        </div>
+        <div className="flex gap-2">
+          <button aria-label="Ara" onClick={() => setIsSearching(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Ara">
+            <Search size={18} />
+          </button>
+          {onAddFolder && (
+            <button aria-label="Klasör Ekle" onClick={onAddFolder} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Klasör Ekle">
+              <FolderPlus size={18} />
+            </button>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+);
+
+const ActionButton = ({ onClick, icon: Icon, title }) => (
+  <div className="absolute bottom-24 right-6 z-20">
+    <button
+      aria-label={title}
+      onClick={onClick}
+      className="w-14 h-14 bg-zinc-900 hover:bg-zinc-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center active:scale-95"
+      title={title}
+    >
+      <Icon size={24} />
+    </button>
+  </div>
+);
+
 const BookCard = ({ book, onOpen, showIndicator = false, folderPath = null, onNavigate = null }) => {
-  const handleClick = (e) => {
+  const [imgError, setImgError] = useState(false);
+
+  const handleClick = () => {
     if (onOpen) onOpen(book.id);
   };
 
@@ -11,8 +163,8 @@ const BookCard = ({ book, onOpen, showIndicator = false, folderPath = null, onNa
     >
       <div className="flex-1 flex items-center gap-3 overflow-hidden">
         <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
-          {book.cover ? (
-            <img src={book.cover} alt="" className="w-full h-full object-cover" />
+          {book.cover && !imgError ? (
+            <img src={book.cover} alt="" onError={() => setImgError(true)} className="w-full h-full object-cover" />
           ) : (
             <BookOpen size={16} />
           )}
@@ -42,27 +194,24 @@ const BookCard = ({ book, onOpen, showIndicator = false, folderPath = null, onNa
   );
 };
 
-const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpenBook, isLibraryView = false }) => {
+const FolderNode = ({ folder, groupedFolders, groupedBooks, expandedFolders, toggleFolder, level = 0, onAddBook, onOpenBook, isLibraryView = false }) => {
   const { addFolder, reorderFolder, deleteFolder } = useArchive();
-  const [isOpen, setIsOpen] = useState(true);
   const [isAddingFolder, setIsAddingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [showDelConfirm, setShowDelConfirm] = useState(false);
 
-  useEffect(() => {
-    const handleExpand = () => setIsOpen(true);
-    window.addEventListener(`expand-folder-${folder.id}`, handleExpand);
-    return () => window.removeEventListener(`expand-folder-${folder.id}`, handleExpand);
-  }, [folder.id]);
-
-  const childFolders = allFolders.filter(f => f.parentId === folder.id).sort((a, b) => a.order - b.order);
-  const childBooks = allBooks.filter(b => b.folderId === folder.id).sort((a, b) => a.order - b.order);
+  // Doğrudan parent komponentin hesapladığı O(1) map sözlüğünden çocukları çekiyoruz.
+  const childFolders = groupedFolders.get(folder.id) || [];
+  const childBooks = groupedBooks.get(folder.id) || [];
+  const isOpen = expandedFolders.has(folder.id);
 
   const handleAddSubfolder = (e) => {
     e.preventDefault();
     if (newFolderName.trim()) {
       addFolder(newFolderName.trim(), folder.id);
-      setNewFolderName(''); setIsAddingFolder(false); setIsOpen(true);
+      setNewFolderName(''); setIsAddingFolder(false);
+      // Eklenen alt klasörü görebilmek için kendimizi açıyoruz
+      if (!isOpen) toggleFolder(folder.id);
     }
   };
 
@@ -72,13 +221,13 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
          <div className="p-2 mb-2 bg-red-50 rounded-lg border border-red-100 flex items-center justify-between text-xs">
             <span className="text-red-800 font-medium truncate">Klasör silinsin mi?</span>
             <div className="flex gap-1 shrink-0 ml-2">
-              <button onClick={() => deleteFolder(folder.id)} className="px-2 py-1 bg-red-600 text-white rounded">Sil</button>
-              <button onClick={() => setShowDelConfirm(false)} className="px-2 py-1 bg-white text-zinc-600 border rounded">İptal</button>
+              <button aria-label="Sil" onClick={() => deleteFolder(folder.id)} className="px-2 py-1 bg-red-600 text-white rounded">Sil</button>
+              <button aria-label="İptal" onClick={() => setShowDelConfirm(false)} className="px-2 py-1 bg-white text-zinc-600 border rounded">İptal</button>
             </div>
          </div>
       ) : (
         <div className="group flex items-center justify-between p-2 rounded-xl transition-colors border border-transparent hover:bg-zinc-50 hover:border-zinc-100">
-          <div className="flex items-center gap-2 cursor-pointer flex-1 overflow-hidden" onClick={() => setIsOpen(!isOpen)}>
+          <div className="flex items-center gap-2 cursor-pointer flex-1 overflow-hidden" onClick={() => toggleFolder(folder.id)}>
             {isOpen ? <ChevronDown size={18} className="text-zinc-400 shrink-0" /> : <ChevronRight size={18} className="text-zinc-400 shrink-0" />}
             <span className="font-semibold text-zinc-700 text-sm truncate">{folder.name}</span>
             <span className="text-[10px] text-zinc-500 bg-zinc-100 border border-zinc-200 px-1.5 py-0.5 rounded-full shrink-0">{childBooks.length}</span>
@@ -86,12 +235,12 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
 
           {!isLibraryView && (
             <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-              <button onClick={() => setShowDelConfirm(true)} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Klasörü Sil"><Trash2 size={14} /></button>
-              <button onClick={() => setIsAddingFolder(true)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 rounded-lg" title="Alt Klasör Ekle"><FolderPlus size={14} /></button>
-              <button onClick={() => onAddBook(folder.id)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 rounded-lg" title="Kitap Ekle"><Plus size={14} /></button>
+              <button aria-label="Klasörü Sil" onClick={() => setShowDelConfirm(true)} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Klasörü Sil"><Trash2 size={14} /></button>
+              <button aria-label="Alt Klasör Ekle" onClick={() => setIsAddingFolder(true)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 rounded-lg" title="Alt Klasör Ekle"><FolderPlus size={14} /></button>
+              <button aria-label="Kitap Ekle" onClick={() => onAddBook(folder.id)} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 rounded-lg" title="Kitap Ekle"><Plus size={14} /></button>
               <div className="flex flex-col ml-1 border-l border-zinc-200 pl-1">
-                <button onClick={() => reorderFolder(folder.id, 'up')} className="p-0.5 text-zinc-400 hover:text-zinc-800"><ArrowUp size={10} /></button>
-                <button onClick={() => reorderFolder(folder.id, 'down')} className="p-0.5 text-zinc-400 hover:text-zinc-800"><ArrowDown size={10} /></button>
+                <button aria-label="Yukarı Taşı" onClick={() => reorderFolder(folder.id, 'up')} className="p-0.5 text-zinc-400 hover:text-zinc-800"><ArrowUp size={10} /></button>
+                <button aria-label="Aşağı Taşı" onClick={() => reorderFolder(folder.id, 'down')} className="p-0.5 text-zinc-400 hover:text-zinc-800"><ArrowDown size={10} /></button>
               </div>
             </div>
           )}
@@ -103,7 +252,7 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
           {isAddingFolder && (
             <form onSubmit={handleAddSubfolder} className="ml-2 mb-2 flex items-center gap-2">
               <input autoFocus type="text" placeholder="Klasör adı..." value={newFolderName} onChange={e => setNewFolderName(e.target.value)} className="text-sm px-3 py-1.5 border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-400 bg-zinc-50 w-full" />
-              <button type="button" onClick={() => setIsAddingFolder(false)} className="p-1.5 text-zinc-400 hover:text-zinc-600 bg-zinc-100 rounded-lg"><X size={16} /></button>
+              <button aria-label="İptal" type="button" onClick={() => setIsAddingFolder(false)} className="p-1.5 text-zinc-400 hover:text-zinc-600 bg-zinc-100 rounded-lg"><X size={16} /></button>
             </form>
           )}
           <div className="mt-1">
@@ -111,7 +260,18 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
           </div>
           <div>
             {childFolders.map(childFolder => (
-              <FolderNode key={childFolder.id} folder={childFolder} allFolders={allFolders} allBooks={allBooks} level={level + 1} onAddBook={onAddBook} onOpenBook={onOpenBook} isLibraryView={isLibraryView} />
+              <FolderNode 
+                key={childFolder.id} 
+                folder={childFolder} 
+                groupedFolders={groupedFolders} 
+                groupedBooks={groupedBooks} 
+                expandedFolders={expandedFolders}
+                toggleFolder={toggleFolder}
+                level={level + 1} 
+                onAddBook={onAddBook} 
+                onOpenBook={onOpenBook} 
+                isLibraryView={isLibraryView} 
+              />
             ))}
           </div>
         </div>
@@ -131,12 +291,7 @@ const ListsView = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const rootFolders = folders.filter(f => f.parentId === null).sort((a, b) => a.order - b.order);
-  const rootBooks = books.filter(b => b.folderId === null).sort((a, b) => a.order - b.order);
-
-  const filteredBooks = searchTerm 
-    ? books.filter(b => b.title.toLowerCase().includes(searchTerm.toLowerCase()) || (b.author && b.author.toLowerCase().includes(searchTerm.toLowerCase())))
-    : [];
+  const { expandedFolders, setExpandedFolders, toggleFolder, groupedFolders, groupedBooks, rootFolders, rootBooks, filteredBooks, getFolderPath } = useTreeManager(folders, books, searchTerm);
 
   const handleAddRootFolder = (e) => {
     e.preventDefault();
@@ -146,111 +301,95 @@ const ListsView = () => {
     }
   };
 
-  const getFolderPath = (folderId) => {
-      if (!folderId) return 'Ana Dizin';
-      let current = folders.find(f => f.id === folderId);
-      let path = [];
-      while(current) {
-          path.unshift(current.name);
-          current = folders.find(f => f.id === current.parentId);
+  const handleNavigate = useCallback((book) => {
+    setIsSearching(false);
+    setSearchTerm('');
+    
+    // Klasörleri güvenli şekilde (sonsuz döngü engeliyle) açıyoruz
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      let currId = book.folderId;
+      const visited = new Set();
+      while (currId && !visited.has(currId)) {
+        visited.add(currId);
+        next.add(currId);
+        const f = folders.find(f => f.id === currId);
+        currId = f ? f.parentId : null;
       }
-      return path.join(' / ') || 'Ana Dizin';
-  };
+      return next;
+    });
 
-  const handleNavigate = (book) => {
-      setIsSearching(false);
-      setSearchTerm('');
-      
-      let currentFolder = folders.find(f => f.id === book.folderId);
-      while(currentFolder) {
-          window.dispatchEvent(new Event(`expand-folder-${currentFolder.id}`));
-          currentFolder = folders.find(f => f.id === currentFolder.parentId);
-      }
-
-      setTimeout(() => {
-          const el = document.getElementById(`book-node-${book.id}`);
-          if (el) {
-              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              el.classList.add('ring-2', 'ring-zinc-900', 'bg-zinc-50');
-              setTimeout(() => el.classList.remove('ring-2', 'ring-zinc-900', 'bg-zinc-50'), 2000);
-          }
-      }, 150);
-  };
+    // React'in DOM'u render edip boyamasını beklemek için çift requestAnimationFrame
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`book-node-${book.id}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-zinc-900', 'bg-zinc-50');
+            setTimeout(() => el.classList.remove('ring-2', 'ring-zinc-900', 'bg-zinc-50'), 2000);
+        }
+      });
+    });
+  }, [folders, setExpandedFolders]);
 
   return (
     <div className="h-full flex flex-col bg-white relative">
-      <div className="p-4 pt-6 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 shadow-sm min-h-[70px] flex items-center">
-        {isSearching ? (
-          <div className="flex w-full items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 text-zinc-400" size={16} />
-              <input autoFocus type="text" placeholder="Kitap veya yazar ara..." className="w-full pl-9 pr-3 py-2 bg-zinc-100 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-            </div>
-            <button onClick={() => { setIsSearching(false); setSearchTerm(''); }} className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-xl"><X size={18} /></button>
-          </div>
-        ) : (
-          <div className="flex w-full justify-between items-center">
-            <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Listelerim</h1>
-            <div className="flex gap-2">
-              <button onClick={() => setIsSearching(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Listelerde Ara"><Search size={18} /></button>
-              <button onClick={() => setIsAddingRoot(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Klasör Ekle"><FolderPlus size={18} /></button>
-            </div>
-          </div>
-        )}
-      </div>
+      <HeaderBar 
+        title="Listelerim" 
+        isSearching={isSearching} 
+        setIsSearching={setIsSearching} 
+        searchTerm={searchTerm} 
+        setSearchTerm={setSearchTerm} 
+        onAddFolder={() => setIsAddingRoot(true)} 
+      />
 
       <div className="flex-1 overflow-y-auto p-4 pb-24">
         {isSearching ? (
           searchTerm.trim() === '' ? (
-            <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
-              <Search size={48} className="opacity-20" />
-              <p className="text-center text-sm font-medium">Aramak istediğiniz kitabın adını yazın.</p>
-            </div>
+            <EmptyState icon={Search} message="Aramak istediğiniz kitabın adını yazın." />
           ) : filteredBooks.length > 0 ? (
             <div className="space-y-1">
               {filteredBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} showIndicator={true} folderPath={getFolderPath(book.folderId)} onNavigate={handleNavigate} />)}
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
-              <FileText size={48} className="opacity-20" />
-              <p className="text-center text-sm font-medium">Bu isimde bir kitap bulunamadı.</p>
-            </div>
+            <EmptyState icon={FileText} message="Bu isimde bir kitap bulunamadı." />
           )
         ) : (
           <>
             {isAddingRoot && (
               <form onSubmit={handleAddRootFolder} className="mb-4 flex items-center gap-2 p-2 bg-zinc-50 rounded-xl border border-zinc-200 shadow-inner">
                 <input autoFocus type="text" placeholder="Yeni liste adı..." value={newFolderName} onChange={e => setNewFolderName(e.target.value)} className="flex-1 bg-transparent px-2 focus:outline-none text-zinc-800 text-sm" />
-                <button type="submit" className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-600"><Check size={16} /></button>
-                <button type="button" onClick={() => setIsAddingRoot(false)} className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-400"><X size={16} /></button>
+                <button aria-label="Onayla" type="submit" className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-600"><Check size={16} /></button>
+                <button aria-label="İptal" type="button" onClick={() => setIsAddingRoot(false)} className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-400"><X size={16} /></button>
               </form>
             )}
 
             {books.length === 0 && folders.length === 0 && !isAddingRoot ? (
-              <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
-                <FileText size={48} className="opacity-20" />
-                <p className="text-center text-sm font-medium">Klasör veya kitap ekleyerek başlayın.</p>
-              </div>
+              <EmptyState icon={FileText} message="Klasör veya kitap ekleyerek başlayın." />
             ) : (
               <div className="space-y-1 min-h-[60px] rounded-xl transition-colors">
                   {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} showIndicator={true} />)}
-                  {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={folders} allBooks={books} onAddBook={(fid) => { setActiveFolderForAdd(fid); setSearchModalOpen(true); }} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} />)}
+                  {rootFolders.map(folder => (
+                    <FolderNode 
+                      key={folder.id} 
+                      folder={folder} 
+                      groupedFolders={groupedFolders} 
+                      groupedBooks={groupedBooks}
+                      expandedFolders={expandedFolders}
+                      toggleFolder={toggleFolder}
+                      onAddBook={(fid) => { setActiveFolderForAdd(fid); setSearchModalOpen(true); }} 
+                      onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} 
+                    />
+                  ))}
               </div>
             )}
           </>
         )}
       </div>
 
-      <div className="absolute bottom-24 right-6 z-20">
-        <button
-          onClick={() => { setActiveFolderForAdd(null); setSearchModalOpen(true); }}
-          className="w-14 h-14 bg-zinc-900 hover:bg-zinc-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center active:scale-95"
-          title="Kitap Ekle"
-        >
-          <Plus size={24} />
-        </button>
-      </div>
+      <ActionButton onClick={() => { setActiveFolderForAdd(null); setSearchModalOpen(true); }} icon={Plus} title="Kitap Ekle" />
 
+      {/* Bu modalların import edildiğini/projenin başka yerinde olduğunu varsayıyorum */}
       <SearchAddModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} folderId={activeFolderForAdd} />
       <BookDetailModal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} bookId={activeBookId} />
     </div>
@@ -265,107 +404,92 @@ const LibraryView = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const libraryBooks = useMemo(() => books.filter(b => b.inLibrary), [books]);
-  const visibleFolderIds = useMemo(() => {
+  
+  const visibleFolders = useMemo(() => {
     const ids = new Set();
-    const addFolderAndAncestors = (folderId) => {
-      if (!folderId || ids.has(folderId)) return;
+    const addAncestors = (folderId, visited = new Set()) => {
+      if (!folderId || ids.has(folderId) || visited.has(folderId)) return;
+      visited.add(folderId);
       ids.add(folderId);
       const folder = folders.find(f => f.id === folderId);
-      if (folder && folder.parentId) addFolderAndAncestors(folder.parentId);
+      if (folder && folder.parentId) addAncestors(folder.parentId, visited);
     };
-    libraryBooks.forEach(book => { if (book.folderId) addFolderAndAncestors(book.folderId); });
-    return ids;
+    libraryBooks.forEach(book => { if (book.folderId) addAncestors(book.folderId); });
+    return folders.filter(f => ids.has(f.id));
   }, [libraryBooks, folders]);
 
-  const visibleFolders = folders.filter(f => visibleFolderIds.has(f.id));
-  const rootFolders = visibleFolders.filter(f => f.parentId === null).sort((a, b) => a.order - b.order);
-  const rootBooks = libraryBooks.filter(b => b.folderId === null).sort((a, b) => a.order - b.order);
+  const { expandedFolders, setExpandedFolders, toggleFolder, groupedFolders, groupedBooks, rootFolders, rootBooks, filteredBooks, getFolderPath } = useTreeManager(visibleFolders, libraryBooks, searchTerm);
 
-  const filteredBooks = searchTerm 
-    ? libraryBooks.filter(b => b.title.toLowerCase().includes(searchTerm.toLowerCase()) || (b.author && b.author.toLowerCase().includes(searchTerm.toLowerCase())))
-    : [];
-
-  const getFolderPath = (folderId) => {
-      if (!folderId) return 'Ana Dizin';
-      let current = folders.find(f => f.id === folderId);
-      let path = [];
-      while(current) {
-          path.unshift(current.name);
-          current = folders.find(f => f.id === current.parentId);
+  const handleNavigate = useCallback((book) => {
+    setIsSearching(false);
+    setSearchTerm('');
+    
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      let currId = book.folderId;
+      const visited = new Set();
+      while (currId && !visited.has(currId)) {
+        visited.add(currId);
+        next.add(currId);
+        const f = folders.find(f => f.id === currId);
+        currId = f ? f.parentId : null;
       }
-      return path.join(' / ') || 'Ana Dizin';
-  };
+      return next;
+    });
 
-  const handleNavigate = (book) => {
-      setIsSearching(false);
-      setSearchTerm('');
-      
-      let currentFolder = folders.find(f => f.id === book.folderId);
-      while(currentFolder) {
-          window.dispatchEvent(new Event(`expand-folder-${currentFolder.id}`));
-          currentFolder = folders.find(f => f.id === currentFolder.parentId);
-      }
-
-      setTimeout(() => {
-          const el = document.getElementById(`book-node-${book.id}`);
-          if (el) {
-              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              el.classList.add('ring-2', 'ring-zinc-900', 'bg-zinc-50');
-              setTimeout(() => el.classList.remove('ring-2', 'ring-zinc-900', 'bg-zinc-50'), 2000);
-          }
-      }, 150);
-  };
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`book-node-${book.id}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-zinc-900', 'bg-zinc-50');
+            setTimeout(() => el.classList.remove('ring-2', 'ring-zinc-900', 'bg-zinc-50'), 2000);
+        }
+      });
+    });
+  }, [folders, setExpandedFolders]);
 
   return (
     <div className="h-full flex flex-col bg-white">
-      <div className="p-4 pt-6 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 shadow-sm min-h-[70px] flex flex-col justify-center">
-        {isSearching ? (
-          <div className="flex w-full items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 text-zinc-400" size={16} />
-              <input autoFocus type="text" placeholder="Kütüphanede ara..." className="w-full pl-9 pr-3 py-2 bg-zinc-100 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-            </div>
-            <button onClick={() => { setIsSearching(false); setSearchTerm(''); }} className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-xl"><X size={18} /></button>
-          </div>
-        ) : (
-          <div className="flex w-full justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Kütüphanem</h1>
-              <p className="text-[11px] text-zinc-500 mt-0.5 uppercase font-semibold tracking-wider">Sahip Olduğunuz Kitaplar</p>
-            </div>
-            {libraryBooks.length > 0 && (
-              <button onClick={() => setIsSearching(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Kütüphanede Ara"><Search size={18} /></button>
-            )}
-          </div>
-        )}
-      </div>
+      <HeaderBar 
+        title="Kütüphanem" 
+        subTitle="Sahip Olduğunuz Kitaplar"
+        isSearching={isSearching} 
+        setIsSearching={setIsSearching} 
+        searchTerm={searchTerm} 
+        setSearchTerm={setSearchTerm} 
+        // Arama butonunun çıkması için
+        onAddFolder={libraryBooks.length > 0 ? null : undefined} 
+      />
 
       <div className="flex-1 overflow-y-auto p-4 pb-24">
         {isSearching ? (
            searchTerm.trim() === '' ? (
-            <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
-              <Search size={48} className="opacity-20" />
-              <p className="text-center text-sm font-medium">Aramak istediğiniz kitabın adını yazın.</p>
-            </div>
+             <EmptyState icon={Search} message="Aramak istediğiniz kitabın adını yazın." />
           ) : filteredBooks.length > 0 ? (
             <div className="space-y-1">
               {filteredBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} isLibraryView={true} folderPath={getFolderPath(book.folderId)} onNavigate={handleNavigate} />)}
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
-              <FileText size={48} className="opacity-20" />
-              <p className="text-center text-sm font-medium">Kütüphanenizde bu isimde kitap yok.</p>
-            </div>
+             <EmptyState icon={FileText} message="Kütüphanenizde bu isimde kitap yok." />
           )
         ) : libraryBooks.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
-            <Library size={48} className="opacity-20" />
-            <p className="text-center text-sm font-medium px-4">Kütüphanenizde kitap yok.<br/><span className="text-xs font-normal">Listelerinizdeki kitapları "Kütüphanemde" olarak işaretleyin.</span></p>
-          </div>
+           <EmptyState icon={Library} message="Kütüphanenizde kitap yok." subMessage='Listelerinizdeki kitapları "Kütüphanemde" olarak işaretleyin.' />
         ) : (
           <div className="space-y-1">
              {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} isLibraryView={true} />)}
-            {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={visibleFolders} allBooks={libraryBooks} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} isLibraryView={true} />)}
+            {rootFolders.map(folder => (
+              <FolderNode 
+                key={folder.id} 
+                folder={folder} 
+                groupedFolders={groupedFolders} 
+                groupedBooks={groupedBooks}
+                expandedFolders={expandedFolders}
+                toggleFolder={toggleFolder}
+                onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} 
+                isLibraryView={true} 
+              />
+            ))}
           </div>
         )}
       </div>
@@ -386,7 +510,8 @@ const StatsView = () => {
   const fileInputRef = useRef(null);
 
   const handleExport = () => {
-    const dataStr = JSON.stringify({ books, folders }, null, 2);
+    // Versiyon eklendi. İleride veri yapısı değiştiğinde migration yazabilmek için faydalı.
+    const dataStr = JSON.stringify({ version: 1, books, folders }, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -405,9 +530,21 @@ const StatsView = () => {
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target.result);
-        importData(parsed);
+        if (!parsed || typeof parsed !== 'object') throw new Error('Geçersiz dosya.');
+        
+        // Validation (Doğrulama)
+        const importedBooks = parsed.books;
+        const importedFolders = parsed.folders;
+        if (!Array.isArray(importedBooks) || !Array.isArray(importedFolders)) {
+            showToast('Dosya formatı hatalı. Bu geçerli bir yedek değil.', 'error');
+            return;
+        }
+
+        // Context içerisine (importData'ya) sadece ihtiyacı olanı pasla.
+        importData({ books: importedBooks, folders: importedFolders });
+        showToast('Veriler başarıyla içe aktarıldı.');
       } catch (err) {
-        showToast('Dosya okunamadı veya geçersiz format.', 'error');
+        showToast('Dosya okunamadı veya bozuk JSON.', 'error');
       }
     };
     reader.readAsText(file);
@@ -421,17 +558,33 @@ const StatsView = () => {
       let totalPages = 0, totalPrice = 0, longest = arr[0], shortest = arr[0];
       const authors = {};
       arr.forEach(b => {
-        const p = parseInt(b.pageCount) || 0;
-        totalPages += p; totalPrice += parseFloat(b.price) || 0;
-        if (p > (parseInt(longest.pageCount) || 0)) longest = b;
-        if (p > 0 && (parseInt(shortest.pageCount) || 0) === 0) shortest = b;
-        else if (p > 0 && p < (parseInt(shortest.pageCount) || Infinity)) shortest = b;
+        // Döngü içerisinde aynı değeri birden fazla Parse etmek yerine bir kere okuyoruz
+        const p = parseInt(b.pageCount, 10);
+        const validPageCount = !isNaN(p) && p > 0 ? p : 0;
+        const price = parseFloat(b.price);
+        const validPrice = !isNaN(price) && price > 0 ? price : 0;
+
+        totalPages += validPageCount; 
+        totalPrice += validPrice;
+
+        const currentLongest = parseInt(longest.pageCount, 10) || 0;
+        const currentShortest = parseInt(shortest.pageCount, 10) || 0;
+
+        if (validPageCount > currentLongest) longest = b;
+        
+        if (validPageCount > 0) {
+            if (currentShortest === 0 || validPageCount < currentShortest) {
+                shortest = b;
+            }
+        }
+
         if (b.author) authors[b.author] = (authors[b.author] || 0) + 1;
       });
+
       let favAuth = '-', max = 0;
       Object.entries(authors).forEach(([a, c]) => { if (c > max) { max = c; favAuth = a; } });
       
-      const isShortestValid = (parseInt(shortest.pageCount) || 0) > 0;
+      const isShortestValid = (parseInt(shortest.pageCount, 10) || 0) > 0;
       
       return { 
         total: arr.length, 
@@ -448,8 +601,10 @@ const StatsView = () => {
     const libS = calc(libBooks) || { total: 0, pages: 0, avg: 0, long: '-', short: '-', fav: '-', price: 0 };
     const read = libBooks.filter(b => b.isRead);
     const unread = libBooks.filter(b => !b.isRead);
-    const rPages = read.reduce((s, b) => s + (parseInt(b.pageCount)||0), 0);
-    const uPages = unread.reduce((s, b) => s + (parseInt(b.pageCount)||0), 0);
+    
+    const rPages = read.reduce((s, b) => s + (parseInt(b.pageCount, 10)||0), 0);
+    const uPages = unread.reduce((s, b) => s + (parseInt(b.pageCount, 10)||0), 0);
+    
     return { list: listS, lib: libS, read: { rCount: read.length, rPages, uCount: unread.length, uPages } };
   }, [books]);
 
@@ -504,10 +659,10 @@ const StatsView = () => {
           <div className="bg-white border border-zinc-100 p-4 rounded-xl shadow-sm flex flex-col gap-3">
             <p className="text-xs text-zinc-500 leading-relaxed">Uygulama verilerinizi cihazınıza dosya olarak indirebilir veya daha önce indirdiğiniz bir dosyayı (başka bir cihazdan) içeri aktarabilirsiniz.</p>
             <div className="flex gap-2">
-              <button onClick={handleExport} className="flex-1 py-2.5 bg-zinc-900 text-white rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
+              <button aria-label="Yedekle" onClick={handleExport} className="flex-1 py-2.5 bg-zinc-900 text-white rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
                 <Download size={16} /> Yedekle
               </button>
-              <button onClick={() => fileInputRef.current.click()} className="flex-1 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-xl text-sm font-medium hover:bg-zinc-50 transition-colors flex items-center justify-center gap-2">
+              <button aria-label="Geri Yükle" onClick={() => fileInputRef.current.click()} className="flex-1 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-xl text-sm font-medium hover:bg-zinc-50 transition-colors flex items-center justify-center gap-2">
                 <Upload size={16} /> Geri Yükle
               </button>
               <input type="file" accept=".json" ref={fileInputRef} onChange={handleImport} className="hidden" />
