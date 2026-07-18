@@ -103,12 +103,11 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   return (
     <div
       id={`book-node-${book.id}`}
-      // DÜZELTME 1: Sürüklenen kart o an için drop hedefi olmaktan çıkarıldı
-     data-book-target={draggable && !isDragged ? book.id : undefined}
+      data-book-target={draggable && !isDragged ? book.id : undefined}
       data-book-target-folder={draggable && !isDragged ? (book.folderId === null ? 'root' : book.folderId) : undefined}
       style={{
-        marginTop: over === 'before' ? '3rem' : '0.375rem',
-        marginBottom: over === 'after' ? '3rem' : '0.375rem',
+        marginTop: over === 'before' ? '3.5rem' : '0.375rem',
+        marginBottom: over === 'after' ? '3.5rem' : '0.375rem',
         transition: isDragged ? 'none' : 'margin 0.25s cubic-bezier(0.2, 0, 0, 1), transform 0.25s ease, opacity 0.25s ease',
         transform: isDragged ? `translateY(${dragOffset.y}px) scale(1.02)` : 'translateY(0)',
         opacity: isDragged ? 0.9 : 1,
@@ -118,6 +117,7 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
         boxShadow: isDragged ? '0 15px 30px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -5px rgba(0, 0, 0, 0.1)' : undefined,
         userSelect: 'none',
         WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none', // PRO FIX 1: O siyah bağlantı menüsünü öldürür
         touchAction: draggable ? 'none' : 'auto',
         msTouchAction: draggable ? 'none' : 'auto',
         willChange: 'margin, transform',
@@ -127,12 +127,14 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
-      onContextMenu={(e) => e.preventDefault()}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} // PRO FIX 2: Uzun basma olayını engeller
+      onDragStart={(e) => e.preventDefault()} // PRO FIX 3: Tarayıcının kendi siyah "ghost" sürüklemesini engeller
     >
       <div className="flex-1 flex items-center gap-3 overflow-hidden pointer-events-none">
         <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
           {book.cover ? (
-            <img src={book.cover} alt="" className="w-full h-full object-cover" />
+            {/* PRO FIX 4: Resmin native drag özelliği false yapıldı ve tıklama engellendi */}
+            <img src={book.cover} alt="" draggable="false" className="w-full h-full object-cover pointer-events-none select-none" />
           ) : (
             <BookOpen size={16} />
           )}
@@ -161,7 +163,6 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
       </div>
     </div>
   );
-};
 
 const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpenBook, isLibraryView = false, draggable = false }) => {
   const { addFolder, reorderFolder, deleteFolder } = useArchive();
