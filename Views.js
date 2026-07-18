@@ -6,8 +6,8 @@ import {
 } from 'lucide-react';
 import { useArchive } from './context';
 import { useDragDrop, DragDropProvider } from './DragDropContext';
-import SearchAddModal from './SearchModal';
-import BookDetailModal from './BookDetail';
+import SearchAddModal from './SearchModal';      // ✅ Doğru import
+import BookDetailModal from './BookDetail';      // ✅ Doğru import
 
 // ===================== BOOK CARD =====================
 const BookCard = memo(({ 
@@ -30,7 +30,6 @@ const BookCard = memo(({
   const hasMovedRef = useRef(false);
   const isPointerDownRef = useRef(false);
 
-  // Long press timer temizliği
   useEffect(() => {
     return () => {
       if (longPressTimerRef.current) {
@@ -100,10 +99,8 @@ const BookCard = memo(({
     const wasDragging = isDraggingRef.current;
     const wasMoved = hasMovedRef.current;
 
-    // Reset flag
     isPointerDownRef.current = false;
 
-    // Tıklama algılama - sadece sürükleme yapılmadıysa ve hareket yoksa
     if (!wasMoved && !wasDragging) {
       if (onOpen) onOpen(book.id);
     }
@@ -229,7 +226,6 @@ const FolderNode = memo(({
   const [newFolderName, setNewFolderName] = useState('');
   const [showDelConfirm, setShowDelConfirm] = useState(false);
 
-  // Folder children'ları useMemo ile cache'le
   const childFolders = useMemo(() => 
     allFolders
       .filter(f => f.parentId === folder.id)
@@ -398,7 +394,6 @@ const ListsView = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Memoize root verileri
   const rootFolders = useMemo(() => 
     folders.filter(f => f.parentId === null).sort((a, b) => a.order - b.order),
     [folders]
@@ -409,7 +404,6 @@ const ListsView = () => {
     [books]
   );
 
-  // Search için memoized filtered books
   const filteredBooks = useMemo(() => {
     if (!searchTerm) return [];
     const term = searchTerm.toLowerCase();
@@ -419,12 +413,11 @@ const ListsView = () => {
     );
   }, [books, searchTerm]);
 
-  // Folder path bulma - memoized
   const getFolderPath = useCallback((folderId) => {
     if (!folderId) return 'Ana Dizin';
     let current = folders.find(f => f.id === folderId);
     const path = [];
-    let maxDepth = 20; // Güvenlik limiti
+    let maxDepth = 20;
     while(current && maxDepth > 0) {
       path.unshift(current.name);
       current = folders.find(f => f.id === current.parentId);
@@ -453,12 +446,10 @@ const ListsView = () => {
       currentFolder = folders.find(f => f.id === currentFolder.parentId);
     }
     
-    // Expand folder'ları aç
     folderIds.forEach(id => {
       window.dispatchEvent(new Event(`expand-folder-${id}`));
     });
 
-    // Scroll işlemi
     const el = document.getElementById(`book-node-${book.id}`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -601,6 +592,7 @@ const ListsView = () => {
         </button>
       </div>
 
+      {/* ✅ Import edilen bileşenler kullanılıyor */}
       <SearchAddModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} folderId={activeFolderForAdd} />
       <BookDetailModal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} bookId={activeBookId} />
     </div>
@@ -615,10 +607,8 @@ const LibraryView = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Memoize library books
   const libraryBooks = useMemo(() => books.filter(b => b.inLibrary), [books]);
 
-  // Memoize visible folder IDs
   const visibleFolderIds = useMemo(() => {
     const ids = new Set();
     const addFolderAndAncestors = (folderId) => {
@@ -633,7 +623,6 @@ const LibraryView = () => {
     return ids;
   }, [libraryBooks, folders]);
 
-  // Memoize visible folders
   const visibleFolders = useMemo(() => 
     folders.filter(f => visibleFolderIds.has(f.id)),
     [folders, visibleFolderIds]
@@ -649,7 +638,6 @@ const LibraryView = () => {
     [libraryBooks]
   );
 
-  // Search için memoized filtered books
   const filteredBooks = useMemo(() => {
     if (!searchTerm) return [];
     const term = searchTerm.toLowerCase();
@@ -792,6 +780,7 @@ const LibraryView = () => {
           </div>
         )}
       </div>
+      
       <BookDetailModal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} bookId={activeBookId} />
     </div>
   );
@@ -832,12 +821,10 @@ const StatsView = () => {
       try {
         const parsed = JSON.parse(event.target?.result);
         
-        // JSON validasyonu
         if (typeof parsed !== 'object' || parsed === null) {
           throw new Error('Geçersiz veri formatı');
         }
         
-        // Books ve folders kontrolü
         const hasBooks = Array.isArray(parsed.books);
         const hasFolders = Array.isArray(parsed.folders);
         
@@ -845,7 +832,6 @@ const StatsView = () => {
           throw new Error('Geçersiz veri yapısı: books veya folders dizisi bulunamadı');
         }
         
-        // Veri boyutu kontrolü (örn: 50MB limit)
         const jsonSize = new Blob([event.target?.result]).size;
         if (jsonSize > 50 * 1024 * 1024) {
           throw new Error('Dosya çok büyük (maksimum 50MB)');
@@ -1026,3 +1012,5 @@ const StatsView = () => {
     </div>
   );
 };
+
+export { ListsView, LibraryView, StatsView };
