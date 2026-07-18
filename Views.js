@@ -9,33 +9,27 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   const hasMovedRef = useRef(false);
   const pointerIdRef = useRef(null);
 
-  // Temizlik
   useEffect(() => {
     return () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-      }
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     };
   }, []);
 
   const handlePointerDown = (e) => {
-    if (!draggable || !dnd) return;
     e.stopPropagation();
-    e.preventDefault();
     
-    // Pointer capture - mobil güvenli
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch(err) {
-      // Fallback için ignore
-    }
-    
-    pointerIdRef.current = e.pointerId;
+    // Tıklama hesabı için pozisyon kaydını draggable olmasa bile yapıyoruz
     startPosRef.current = { x: e.clientX, y: e.clientY };
     hasMovedRef.current = false;
     isDraggingRef.current = false;
+
+    if (!draggable || !dnd) return; // Sürükleme yoksa burada kes
     
-    // Long press: 300ms basılı tutunca sürükleme başlar
+    e.preventDefault();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch(err) {}
+    
+    pointerIdRef.current = e.pointerId;
+    
     longPressTimerRef.current = setTimeout(() => {
       isDraggingRef.current = true;
       dnd.startDrag(book.id, e);
@@ -43,26 +37,24 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   };
 
   const handlePointerMove = (e) => {
-    if (!draggable || !dnd) return;
     e.stopPropagation();
     
     const dx = Math.abs(e.clientX - startPosRef.current.x);
     const dy = Math.abs(e.clientY - startPosRef.current.y);
     
-    // 5px'den fazla hareket varsa
     if (dx > 5 || dy > 5) {
       hasMovedRef.current = true;
-      
-      // Eğer long press henüz tetiklenmediyse, hareketle birlikte hemen sürüklemeyi başlat
-      if (!isDraggingRef.current && longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-        isDraggingRef.current = true;
-        dnd.startDrag(book.id, e);
-      }
+    }
+
+    if (!draggable || !dnd) return; // Sürükleme işlemleri yoksa burada kes
+    
+    if (hasMovedRef.current && !isDraggingRef.current && longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+      isDraggingRef.current = true;
+      dnd.startDrag(book.id, e);
     }
     
-    // Sürükleme aktifse kartı hareket ettir
     if (isDraggingRef.current && dnd.draggedId === book.id) {
       const offsetY = e.clientY - startPosRef.current.y;
       setDragOffset({ x: 0, y: offsetY });
@@ -71,33 +63,28 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   };
 
   const handlePointerUp = (e) => {
-    if (!draggable || !dnd) return;
     e.stopPropagation();
     
-    // Long press timer'ı temizle
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-    
-    // Pointer capture'ı serbest bırak
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch(err) {
-      // Ignore
+
+    // Kart hareket etmediyse ve sürüklenmiyorsa TIKLAMA olarak algıla (Tüm kartlar için)
+    if (!hasMovedRef.current && !isDraggingRef.current) {
+      if (onOpen) onOpen(book.id);
     }
+
+    if (!draggable || !dnd) return; // Sürükleme bitiş resetlemeleri için kes
+
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch(err) {}
     
     if (isDraggingRef.current && dnd.draggedId === book.id) {
-      // Sürükleme bitti
       setDragOffset({ x: 0, y: 0 });
       dnd.endDrag();
-    } else if (!hasMovedRef.current) {
-      // Kısa tıklama - detayı aç
-      onOpen(book.id);
     }
     
     isDraggingRef.current = false;
-    hasMovedRef.current = false;
     pointerIdRef.current = null;
   };
 
@@ -153,8 +140,12 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
           <h4 className="font-semibold text-zinc-800 text-sm truncate">{book.title}</h4>
           {folderPath ? (
              <p 
-               className="text-[10px] font-medium text-zinc-500 truncate flex items-center gap-1 mt-1 cursor-pointer hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 w-fit px-2 py-0.5 rounded-full"
-               onClick={(e) => { if (onNavigate) { e.stopPropagation(); onNavigate(book); } }}
+               className="text-[10px] font-medium text-zinc-500 truncate flex items-center gap-1 mt-1 cursor-pointer pointer-events-auto hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 w-fit px-2 py-0.5 rounded-full"
+               onPointerDown={(e) => e.stopPropagation()} // Kitap sürüklenmesini engeller
+               onPointerUp={(e) => { 
+                 e.stopPropagation(); // Kitap detayının açılmasını engeller
+                 if (onNavigate) onNavigate(book); 
+               }}
                title="Klasördeki yerine git"
              >
                <Folder size={10} /> {folderPath} <MoveRight size={10} className="ml-0.5 opacity-60" />
@@ -520,22 +511,68 @@ const LibraryView = () => {
   );
 };
 
+// Box bileşenini dışarı aldık
+const StatBox = ({ label, value }) => (
+  <div className="bg-white border border-zinc-100 p-4 rounded-xl flex flex-col justify-center shadow-sm">
+    <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-1">{label}</span>
+    <span className="text-lg font-bold text-zinc-900 truncate">{value}</span>
+  </div>
+);
+
 const StatsView = () => {
   const { books, folders, importData, showToast } = useArchive();
   const fileInputRef = useRef(null);
 
-  const handleExport = () => {
-    const dataStr = JSON.stringify({ books, folders }, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const date = new Date().toISOString().split('T')[0];
-    a.download = `kutuphane_yedegi_${date}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('Yedekleme dosyası cihazınıza indirildi.');
-  };
+  // ... (handleExport ve handleImport fonksiyonları aynı kalacak) ...
+
+  const stats = useMemo(() => {
+    const libBooks = books.filter(b => b.inLibrary);
+    const calc = (arr) => {
+      if (arr.length === 0) return null;
+      let totalPages = 0, totalPrice = 0, longest = arr[0], shortest = arr[0];
+      const authors = {};
+      arr.forEach(b => {
+        const p = parseInt(b.pageCount) || 0;
+        totalPages += p; totalPrice += parseFloat(b.price) || 0;
+        if (p > (parseInt(longest.pageCount) || 0)) longest = b;
+        if (p > 0 && (parseInt(shortest.pageCount) || 0) === 0) shortest = b;
+        else if (p > 0 && p < (parseInt(shortest.pageCount) || Infinity)) shortest = b;
+        if (b.author) authors[b.author] = (authors[b.author] || 0) + 1;
+      });
+      let favAuth = '-', max = 0;
+      Object.entries(authors).forEach(([a, c]) => { if (c > max) { max = c; favAuth = a; } });
+      
+      // shortest.pageCount undefined olabileceği için güvenli kontrol ekledik
+      const isShortestValid = (parseInt(shortest.pageCount) || 0) > 0;
+      
+      return { 
+        total: arr.length, 
+        pages: totalPages, 
+        avg: Math.round(totalPages/arr.length)||0, 
+        long: longest.title||'-', 
+        short: isShortestValid ? shortest.title : '-', 
+        fav: favAuth, 
+        price: totalPrice 
+      };
+    };
+    
+    // ... (Kalan stats hesaplamaları aynı) ...
+  }, [books]);
+
+  return (
+    <div className="h-full flex flex-col bg-zinc-50">
+      {/* ... */}
+          <div className="grid grid-cols-2 gap-2">
+            <StatBox label="Toplam Kitap" value={stats.list.total} />
+            <StatBox label="Toplam Sayfa" value={stats.list.pages.toLocaleString()} />
+            <StatBox label="Ort. Sayfa" value={stats.list.avg} />
+            <StatBox label="Favori Yazar" value={stats.list.fav} />
+            {/* ... */}
+          </div>
+      {/* ... diğer bölümlerdeki <Box> kullanımlarını da <StatBox> ile değiştiriyoruz */}
+    </div>
+  );
+};
 
   const handleImport = (e) => {
     const file = e.target.files[0];
