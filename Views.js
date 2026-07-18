@@ -1,3 +1,4 @@
+// ✅ SADECE BİR TANE REACT IMPORT'U OLMALI
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { 
   BookOpen, Folder, FolderPlus, Plus, X, ChevronDown, ChevronRight, 
@@ -6,8 +7,8 @@ import {
 } from 'lucide-react';
 import { useArchive } from './context';
 import { useDragDrop, DragDropProvider } from './DragDropContext';
-import SearchAddModal from './SearchModal';      // ✅ Doğru import
-import BookDetailModal from './BookDetail';      // ✅ Doğru import
+import SearchAddModal from './SearchModal';
+import BookDetailModal from './BookDetail';
 
 // ===================== BOOK CARD =====================
 const BookCard = memo(({ 
@@ -132,11 +133,6 @@ const BookCard = memo(({
     hasMovedRef.current = false;
     isPointerDownRef.current = false;
   }, [draggable, dnd]);
-
-  const handleNavigateClick = useCallback((e) => {
-    e.stopPropagation();
-    if (onNavigate) onNavigate(book);
-  }, [onNavigate, book]);
 
   return (
     <div
@@ -592,7 +588,6 @@ const ListsView = () => {
         </button>
       </div>
 
-      {/* ✅ Import edilen bileşenler kullanılıyor */}
       <SearchAddModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} folderId={activeFolderForAdd} />
       <BookDetailModal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} bookId={activeBookId} />
     </div>
