@@ -1,10 +1,3 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-// Kullanılan ikonları projene göre buradan veya kendi kullandığın import'tan alabilirsin.
-import { ChevronDown, ChevronRight, Folder, FolderPlus, Plus, Search, X, Check, Trash2, ArrowUp, ArrowDown, MoveRight, BookOpen, FileText, Library, Download, Upload, List } from 'lucide-react';
-
-// --- YARDIMCI HOOK'LAR VE FONKSİYONLAR ---
-
-// Klasör ağacı, açık klasörler ve yönlendirme işlemlerini merkezi yöneten Hook
 const useTreeManager = (folders, books, searchTerm) => {
   const [expandedFolders, setExpandedFolders] = useState(new Set());
 
