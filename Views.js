@@ -1,19 +1,15 @@
-const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, folderPath = null, onNavigate = null }) => {
-  const dnd = useDragDrop();
-  const isDragged = draggable && dnd && dnd.draggedId === book.id;
-  const over = draggable && dnd && dnd.overTarget && dnd.overTarget.type === 'book' && dnd.overTarget.id === book.id ? dnd.overTarget.placement : null;
+const BookCard = ({ book, onOpen, showIndicator = false, folderPath = null, onNavigate = null }) => {
+  const handleClick = (e) => {
+    if (onOpen) onOpen(book.id);
+  };
 
   return (
     <div
       id={`book-node-${book.id}`}
-      data-book-target={draggable ? book.id : undefined}
-      data-book-target-folder={draggable ? (book.folderId === null ? 'root' : book.folderId) : undefined}
-      className={`group flex items-center justify-between p-3 mb-1.5 bg-white border rounded-xl shadow-sm hover:border-zinc-300 transition-all ml-2 sm:ml-4 ${isDragged ? 'opacity-30' : 'border-zinc-100'} ${over === 'before' ? 'border-t-2 border-t-zinc-900' : ''} ${over === 'after' ? 'border-b-2 border-b-zinc-900' : ''}`}
+      className="group flex items-center justify-between p-3 bg-white border border-zinc-100 rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 cursor-pointer transition-colors my-1.5"
+      onClick={handleClick}
     >
-      <div
-        className="flex-1 cursor-pointer flex items-center gap-3 overflow-hidden"
-        onClick={() => onOpen(book.id)}
-      >
+      <div className="flex-1 flex items-center gap-3 overflow-hidden">
         <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
           {book.cover ? (
             <img src={book.cover} alt="" className="w-full h-full object-cover" />
@@ -26,7 +22,10 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
           {folderPath ? (
              <p 
                className="text-[10px] font-medium text-zinc-500 truncate flex items-center gap-1 mt-1 cursor-pointer hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 w-fit px-2 py-0.5 rounded-full"
-               onClick={(e) => { if (onNavigate) { e.stopPropagation(); onNavigate(book); } }}
+               onClick={(e) => { 
+                 e.stopPropagation();
+                 if (onNavigate) onNavigate(book); 
+               }}
                title="Klasördeki yerine git"
              >
                <Folder size={10} /> {folderPath} <MoveRight size={10} className="ml-0.5 opacity-60" />
@@ -39,27 +38,12 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
           <span className="ml-auto w-2 h-2 rounded-full bg-zinc-900 shrink-0" title="Kütüphanemde"></span>
         )}
       </div>
-      {draggable && (
-        <span
-          className="p-2 -mr-1 text-zinc-300 hover:text-zinc-600 cursor-grab active:cursor-grabbing touch-none shrink-0"
-          title="Sürükle"
-          onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dnd.startDrag(book.id, e); }}
-          onPointerMove={(e) => { if (dnd.draggedId === book.id) { e.stopPropagation(); dnd.updateDrag(e); } }}
-          onPointerUp={(e) => { if (dnd.draggedId === book.id) { e.stopPropagation(); dnd.endDrag(); } }}
-          onPointerCancel={() => dnd.cancelDrag()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <GripVertical size={16} />
-        </span>
-      )}
     </div>
   );
 };
 
-const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpenBook, isLibraryView = false, draggable = false }) => {
+const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpenBook, isLibraryView = false }) => {
   const { addFolder, reorderFolder, deleteFolder } = useArchive();
-  const dnd = useDragDrop();
-  const isDropTarget = draggable && dnd && dnd.overTarget && dnd.overTarget.type === 'folder' && dnd.overTarget.id === folder.id;
   const [isOpen, setIsOpen] = useState(true);
   const [isAddingFolder, setIsAddingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -93,10 +77,7 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
             </div>
          </div>
       ) : (
-        <div
-          data-folder-target={draggable ? folder.id : undefined}
-          className={`group flex items-center justify-between p-2 rounded-xl transition-colors border ${isDropTarget ? 'bg-zinc-900/5 border-dashed border-zinc-900' : 'border-transparent hover:bg-zinc-50 hover:border-zinc-100'}`}
-        >
+        <div className="group flex items-center justify-between p-2 rounded-xl transition-colors border border-transparent hover:bg-zinc-50 hover:border-zinc-100">
           <div className="flex items-center gap-2 cursor-pointer flex-1 overflow-hidden" onClick={() => setIsOpen(!isOpen)}>
             {isOpen ? <ChevronDown size={18} className="text-zinc-400 shrink-0" /> : <ChevronRight size={18} className="text-zinc-400 shrink-0" />}
             <span className="font-semibold text-zinc-700 text-sm truncate">{folder.name}</span>
@@ -126,11 +107,11 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
             </form>
           )}
           <div className="mt-1">
-            {childBooks.map(book => <BookCard key={book.id} book={book} onOpen={onOpenBook} showIndicator={!isLibraryView} draggable={draggable} />)}
+            {childBooks.map(book => <BookCard key={book.id} book={book} onOpen={onOpenBook} showIndicator={!isLibraryView} />)}
           </div>
           <div>
             {childFolders.map(childFolder => (
-              <FolderNode key={childFolder.id} folder={childFolder} allFolders={allFolders} allBooks={allBooks} level={level + 1} onAddBook={onAddBook} onOpenBook={onOpenBook} isLibraryView={isLibraryView} draggable={draggable} />
+              <FolderNode key={childFolder.id} folder={childFolder} allFolders={allFolders} allBooks={allBooks} level={level + 1} onAddBook={onAddBook} onOpenBook={onOpenBook} isLibraryView={isLibraryView} />
             ))}
           </div>
         </div>
@@ -139,18 +120,8 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
   );
 };
 
-const RootDropZone = ({ children }) => {
-  const dnd = useDragDrop();
-  const isOver = dnd && dnd.overTarget && dnd.overTarget.type === 'folder' && dnd.overTarget.id === 'root';
-  return (
-    <div data-folder-target="root" className={`space-y-1 min-h-[60px] rounded-xl transition-colors ${isOver ? 'bg-zinc-900/5 ring-2 ring-dashed ring-zinc-900' : ''}`}>
-      {children}
-    </div>
-  );
-};
-
 const ListsView = () => {
-  const { folders, books, addFolder, moveBookToPosition } = useArchive();
+  const { folders, books, addFolder } = useArchive();
   const [isAddingRoot, setIsAddingRoot] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -207,7 +178,7 @@ const ListsView = () => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-white relative">
       <div className="p-4 pt-6 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 shadow-sm min-h-[70px] flex items-center">
         {isSearching ? (
           <div className="flex w-full items-center gap-2">
@@ -223,7 +194,6 @@ const ListsView = () => {
             <div className="flex gap-2">
               <button onClick={() => setIsSearching(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Listelerde Ara"><Search size={18} /></button>
               <button onClick={() => setIsAddingRoot(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Klasör Ekle"><FolderPlus size={18} /></button>
-              <button onClick={() => { setActiveFolderForAdd(null); setSearchModalOpen(true); }} className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-colors text-sm font-medium"><Plus size={16} /> Ekle</button>
             </div>
           </div>
         )}
@@ -262,15 +232,23 @@ const ListsView = () => {
                 <p className="text-center text-sm font-medium">Klasör veya kitap ekleyerek başlayın.</p>
               </div>
             ) : (
-              <DragDropProvider onDrop={(bookId, targetFolderId, anchorId, placement) => moveBookToPosition(bookId, targetFolderId, anchorId, placement)}>
-                <RootDropZone>
-                  {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} showIndicator={true} draggable={true} />)}
-                  {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={folders} allBooks={books} onAddBook={(fid) => { setActiveFolderForAdd(fid); setSearchModalOpen(true); }} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} draggable={true} />)}
-                </RootDropZone>
-              </DragDropProvider>
+              <div className="space-y-1 min-h-[60px] rounded-xl transition-colors">
+                  {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} showIndicator={true} />)}
+                  {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={folders} allBooks={books} onAddBook={(fid) => { setActiveFolderForAdd(fid); setSearchModalOpen(true); }} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} />)}
+              </div>
             )}
           </>
         )}
+      </div>
+
+      <div className="absolute bottom-24 right-6 z-20">
+        <button
+          onClick={() => { setActiveFolderForAdd(null); setSearchModalOpen(true); }}
+          className="w-14 h-14 bg-zinc-900 hover:bg-zinc-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center active:scale-95"
+          title="Kitap Ekle"
+        >
+          <Plus size={24} />
+        </button>
       </div>
 
       <SearchAddModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} folderId={activeFolderForAdd} />
@@ -396,6 +374,13 @@ const LibraryView = () => {
   );
 };
 
+const StatBox = ({ label, value }) => (
+  <div className="bg-white border border-zinc-100 p-4 rounded-xl flex flex-col justify-center shadow-sm">
+    <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-1">{label}</span>
+    <span className="text-lg font-bold text-zinc-900 truncate">{value}</span>
+  </div>
+);
+
 const StatsView = () => {
   const { books, folders, importData, showToast } = useArchive();
   const fileInputRef = useRef(null);
@@ -426,7 +411,7 @@ const StatsView = () => {
       }
     };
     reader.readAsText(file);
-    e.target.value = ''; // Input'u sıfırla ki aynı dosyayı tekrar seçebilsin
+    e.target.value = '';
   };
 
   const stats = useMemo(() => {
@@ -445,8 +430,20 @@ const StatsView = () => {
       });
       let favAuth = '-', max = 0;
       Object.entries(authors).forEach(([a, c]) => { if (c > max) { max = c; favAuth = a; } });
-      return { total: arr.length, pages: totalPages, avg: Math.round(totalPages/arr.length)||0, long: longest.title||'-', short: shortest.pageCount>0?shortest.title:'-', fav: favAuth, price: totalPrice };
+      
+      const isShortestValid = (parseInt(shortest.pageCount) || 0) > 0;
+      
+      return { 
+        total: arr.length, 
+        pages: totalPages, 
+        avg: Math.round(totalPages/arr.length)||0, 
+        long: longest.title||'-', 
+        short: isShortestValid ? shortest.title : '-', 
+        fav: favAuth, 
+        price: totalPrice 
+      };
     };
+    
     const listS = calc(books) || { total: 0, pages: 0, avg: 0, long: '-', short: '-', fav: '-', price: 0 };
     const libS = calc(libBooks) || { total: 0, pages: 0, avg: 0, long: '-', short: '-', fav: '-', price: 0 };
     const read = libBooks.filter(b => b.isRead);
@@ -455,13 +452,6 @@ const StatsView = () => {
     const uPages = unread.reduce((s, b) => s + (parseInt(b.pageCount)||0), 0);
     return { list: listS, lib: libS, read: { rCount: read.length, rPages, uCount: unread.length, uPages } };
   }, [books]);
-
-  const Box = ({ label, value }) => (
-    <div className="bg-white border border-zinc-100 p-4 rounded-xl flex flex-col justify-center shadow-sm">
-      <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-1">{label}</span>
-      <span className="text-lg font-bold text-zinc-900 truncate">{value}</span>
-    </div>
-  );
 
   return (
     <div className="h-full flex flex-col bg-zinc-50">
@@ -472,10 +462,10 @@ const StatsView = () => {
         <section>
           <h2 className="text-sm font-bold text-zinc-700 mb-3 flex items-center gap-1.5"><List size={16} className="text-zinc-400"/> Listelerim</h2>
           <div className="grid grid-cols-2 gap-2">
-            <Box label="Toplam Kitap" value={stats.list.total} />
-            <Box label="Toplam Sayfa" value={stats.list.pages.toLocaleString()} />
-            <Box label="Ort. Sayfa" value={stats.list.avg} />
-            <Box label="Favori Yazar" value={stats.list.fav} />
+            <StatBox label="Toplam Kitap" value={stats.list.total} />
+            <StatBox label="Toplam Sayfa" value={stats.list.pages.toLocaleString()} />
+            <StatBox label="Ort. Sayfa" value={stats.list.avg} />
+            <StatBox label="Favori Yazar" value={stats.list.fav} />
             <div className="col-span-2 bg-white border border-zinc-100 p-3 rounded-xl shadow-sm">
                 <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block mb-1">En Uzun Kitap</span>
                 <span className="text-sm font-semibold text-zinc-800 truncate block">{stats.list.long}</span>
@@ -485,10 +475,10 @@ const StatsView = () => {
         <section>
           <h2 className="text-sm font-bold text-zinc-700 mb-3 flex items-center gap-1.5"><Library size={16} className="text-zinc-400"/> Kütüphanem</h2>
           <div className="grid grid-cols-2 gap-2">
-            <Box label="Toplam Kitap" value={stats.lib.total} />
-            <Box label="Toplam Değer" value={`₺${stats.lib.price.toLocaleString()}`} />
-            <Box label="Toplam Sayfa" value={stats.lib.pages.toLocaleString()} />
-            <Box label="Favori Yazar" value={stats.lib.fav} />
+            <StatBox label="Toplam Kitap" value={stats.lib.total} />
+            <StatBox label="Toplam Değer" value={`₺${stats.lib.price.toLocaleString()}`} />
+            <StatBox label="Toplam Sayfa" value={stats.lib.pages.toLocaleString()} />
+            <StatBox label="Favori Yazar" value={stats.lib.fav} />
           </div>
         </section>
         <section>
@@ -504,8 +494,8 @@ const StatsView = () => {
                 <p className="text-xl font-bold text-white">{stats.read.rPages.toLocaleString()}</p>
               </div>
             </div>
-            <Box label="Okunmayan Kitap" value={stats.read.uCount} />
-            <Box label="Okunmayan Sayfa" value={stats.read.uPages.toLocaleString()} />
+            <StatBox label="Okunmayan Kitap" value={stats.read.uCount} />
+            <StatBox label="Okunmayan Sayfa" value={stats.read.uPages.toLocaleString()} />
           </div>
         </section>
 
