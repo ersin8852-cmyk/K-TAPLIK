@@ -1,139 +1,18 @@
-const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, folderPath = null, onNavigate = null }) => {
-  const dnd = useDragDrop();
-  const isDragged = draggable && dnd && dnd.draggedId === book.id;
-  const over = draggable && dnd && dnd.overTarget && dnd.overTarget.type === 'book' && dnd.overTarget.id === book.id ? dnd.overTarget.placement : null;
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const startPosRef = useRef({ x: 0, y: 0 });
-  const isDraggingRef = useRef(false);
-  const longPressTimerRef = useRef(null);
-  const hasMovedRef = useRef(false);
-  const pointerIdRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-    };
-  }, []);
-
-  const handlePointerDown = (e) => {
-    e.stopPropagation();
-    
-    startPosRef.current = { x: e.clientX, y: e.clientY };
-    hasMovedRef.current = false;
-    isDraggingRef.current = false;
-
-    if (!draggable || !dnd) return; 
-    
-    e.preventDefault();
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch(err) {}
-    
-    pointerIdRef.current = e.pointerId;
-    
-    longPressTimerRef.current = setTimeout(() => {
-      isDraggingRef.current = true;
-      dnd.startDrag(book.id, e);
-    }, 300);
-  };
-
-  const handlePointerMove = (e) => {
-    e.stopPropagation();
-    
-    const dx = Math.abs(e.clientX - startPosRef.current.x);
-    const dy = Math.abs(e.clientY - startPosRef.current.y);
-    
-    if (dx > 5 || dy > 5) {
-      hasMovedRef.current = true;
-    }
-
-    if (!draggable || !dnd) return; 
-    
-    if (hasMovedRef.current && !isDraggingRef.current && longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-      isDraggingRef.current = true;
-      dnd.startDrag(book.id, e);
-    }
-    
-    if (isDraggingRef.current && dnd.draggedId === book.id) {
-      const offsetY = e.clientY - startPosRef.current.y;
-      setDragOffset({ x: 0, y: offsetY });
-      dnd.updateDrag(e);
-    }
-  };
-
-  const handlePointerUp = (e) => {
-    e.stopPropagation();
-    
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-
-    if (!hasMovedRef.current && !isDraggingRef.current) {
-      if (onOpen) onOpen(book.id);
-    }
-
-    if (!draggable || !dnd) return; 
-
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch(err) {}
-    
-    if (isDraggingRef.current && dnd.draggedId === book.id) {
-      setDragOffset({ x: 0, y: 0 });
-      dnd.endDrag();
-    }
-    
-    isDraggingRef.current = false;
-    pointerIdRef.current = null;
-  };
-
-  const handlePointerCancel = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-    if (draggable && dnd) {
-      setDragOffset({ x: 0, y: 0 });
-      dnd.cancelDrag();
-    }
-    isDraggingRef.current = false;
-    hasMovedRef.current = false;
-    pointerIdRef.current = null;
+const BookCard = ({ book, onOpen, showIndicator = false, folderPath = null, onNavigate = null }) => {
+  const handleClick = (e) => {
+    if (onOpen) onOpen(book.id);
   };
 
   return (
     <div
       id={`book-node-${book.id}`}
-      data-book-target={draggable && !isDragged ? book.id : undefined}
-      data-book-target-folder={draggable && !isDragged ? (book.folderId === null ? 'root' : book.folderId) : undefined}
-      style={{
-        marginTop: over === 'before' ? '3.5rem' : '0.375rem',
-        marginBottom: over === 'after' ? '3.5rem' : '0.375rem',
-        transition: isDragged ? 'none' : 'margin 0.25s cubic-bezier(0.2, 0, 0, 1), transform 0.25s ease, opacity 0.25s ease',
-        transform: isDragged ? `translateY(${dragOffset.y}px) scale(1.02)` : 'translateY(0)',
-        opacity: isDragged ? 0.9 : 1,
-        zIndex: isDragged ? 999 : 1,
-        position: isDragged ? 'relative' : undefined,
-        pointerEvents: isDragged ? 'none' : 'auto',
-        boxShadow: isDragged ? '0 15px 30px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -5px rgba(0, 0, 0, 0.1)' : undefined,
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-        WebkitTouchCallout: 'none', 
-        touchAction: draggable ? 'none' : 'auto',
-        msTouchAction: draggable ? 'none' : 'auto',
-        willChange: 'margin, transform',
-      }}
-      className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${!isDragged ? 'border-zinc-100' : ''} ${draggable && !isDragged ? 'cursor-grab active:cursor-grabbing select-none' : ''} ${isDragged ? 'cursor-grabbing border-zinc-300' : ''}`}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerCancel}
-      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} 
-      onDragStart={(e) => e.preventDefault()} 
+      className="group flex items-center justify-between p-3 bg-white border border-zinc-100 rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 cursor-pointer transition-colors my-1.5"
+      onClick={handleClick}
     >
-      <div className="flex-1 flex items-center gap-3 overflow-hidden pointer-events-none">
+      <div className="flex-1 flex items-center gap-3 overflow-hidden">
         <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
           {book.cover ? (
-            <img src={book.cover} alt="" draggable="false" className="w-full h-full object-cover pointer-events-none select-none" />
+            <img src={book.cover} alt="" className="w-full h-full object-cover" />
           ) : (
             <BookOpen size={16} />
           )}
@@ -142,9 +21,8 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
           <h4 className="font-semibold text-zinc-800 text-sm truncate">{book.title}</h4>
           {folderPath ? (
              <p 
-               className="text-[10px] font-medium text-zinc-500 truncate flex items-center gap-1 mt-1 cursor-pointer pointer-events-auto hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 w-fit px-2 py-0.5 rounded-full"
-               onPointerDown={(e) => e.stopPropagation()}
-               onPointerUp={(e) => { 
+               className="text-[10px] font-medium text-zinc-500 truncate flex items-center gap-1 mt-1 cursor-pointer hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 w-fit px-2 py-0.5 rounded-full"
+               onClick={(e) => { 
                  e.stopPropagation();
                  if (onNavigate) onNavigate(book); 
                }}
@@ -164,10 +42,8 @@ const BookCard = ({ book, onOpen, showIndicator = false, draggable = false, fold
   );
 };
 
-const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpenBook, isLibraryView = false, draggable = false }) => {
+const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpenBook, isLibraryView = false }) => {
   const { addFolder, reorderFolder, deleteFolder } = useArchive();
-  const dnd = useDragDrop();
-  const isDropTarget = draggable && dnd && dnd.overTarget && dnd.overTarget.type === 'folder' && dnd.overTarget.id === folder.id;
   const [isOpen, setIsOpen] = useState(true);
   const [isAddingFolder, setIsAddingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -201,10 +77,7 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
             </div>
          </div>
       ) : (
-        <div
-          data-folder-target={draggable ? folder.id : undefined}
-          className={`group flex items-center justify-between p-2 rounded-xl transition-colors border ${isDropTarget ? 'bg-zinc-50 border-dashed border-zinc-300' : 'border-transparent hover:bg-zinc-50 hover:border-zinc-100'}`}
-        >
+        <div className="group flex items-center justify-between p-2 rounded-xl transition-colors border border-transparent hover:bg-zinc-50 hover:border-zinc-100">
           <div className="flex items-center gap-2 cursor-pointer flex-1 overflow-hidden" onClick={() => setIsOpen(!isOpen)}>
             {isOpen ? <ChevronDown size={18} className="text-zinc-400 shrink-0" /> : <ChevronRight size={18} className="text-zinc-400 shrink-0" />}
             <span className="font-semibold text-zinc-700 text-sm truncate">{folder.name}</span>
@@ -234,11 +107,11 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
             </form>
           )}
           <div className="mt-1">
-            {childBooks.map(book => <BookCard key={book.id} book={book} onOpen={onOpenBook} showIndicator={!isLibraryView} draggable={draggable} />)}
+            {childBooks.map(book => <BookCard key={book.id} book={book} onOpen={onOpenBook} showIndicator={!isLibraryView} />)}
           </div>
           <div>
             {childFolders.map(childFolder => (
-              <FolderNode key={childFolder.id} folder={childFolder} allFolders={allFolders} allBooks={allBooks} level={level + 1} onAddBook={onAddBook} onOpenBook={onOpenBook} isLibraryView={isLibraryView} draggable={draggable} />
+              <FolderNode key={childFolder.id} folder={childFolder} allFolders={allFolders} allBooks={allBooks} level={level + 1} onAddBook={onAddBook} onOpenBook={onOpenBook} isLibraryView={isLibraryView} />
             ))}
           </div>
         </div>
@@ -247,18 +120,8 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
   );
 };
 
-const RootDropZone = ({ children }) => {
-  const dnd = useDragDrop();
-  const isOver = dnd && dnd.overTarget && dnd.overTarget.type === 'folder' && dnd.overTarget.id === 'root';
-  return (
-    <div data-folder-target="root" className={`space-y-1 min-h-[60px] rounded-xl transition-colors ${isOver ? 'bg-zinc-50' : ''}`}>
-      {children}
-    </div>
-  );
-};
-
 const ListsView = () => {
-  const { folders, books, addFolder, moveBookToPosition } = useArchive();
+  const { folders, books, addFolder } = useArchive();
   const [isAddingRoot, setIsAddingRoot] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -369,12 +232,10 @@ const ListsView = () => {
                 <p className="text-center text-sm font-medium">Klasör veya kitap ekleyerek başlayın.</p>
               </div>
             ) : (
-              <DragDropProvider onDrop={(bookId, targetFolderId, anchorId, placement) => moveBookToPosition(bookId, targetFolderId, anchorId, placement)}>
-                <RootDropZone>
-                  {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} showIndicator={true} draggable={true} />)}
-                  {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={folders} allBooks={books} onAddBook={(fid) => { setActiveFolderForAdd(fid); setSearchModalOpen(true); }} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} draggable={true} />)}
-                </RootDropZone>
-              </DragDropProvider>
+              <div className="space-y-1 min-h-[60px] rounded-xl transition-colors">
+                  {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} showIndicator={true} />)}
+                  {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={folders} allBooks={books} onAddBook={(fid) => { setActiveFolderForAdd(fid); setSearchModalOpen(true); }} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} />)}
+              </div>
             )}
           </>
         )}
