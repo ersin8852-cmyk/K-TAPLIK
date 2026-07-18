@@ -1,299 +1,1028 @@
-const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
-const { createRoot } = ReactDOM;
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import { 
+  BookOpen, Folder, FolderPlus, Plus, X, ChevronDown, ChevronRight, 
+  Trash2, ArrowUp, ArrowDown, MoveRight, Search, FileText, Check,
+  Library, Download, Upload, List
+} from 'lucide-react';
+import { useArchive } from './context';
+import { useDragDrop, DragDropProvider } from './DragDropContext';
+import SearchAddModal from './SearchModal';
+import BookDetailModal from './BookDetail';
 
-const FallbackIcon = ({ size = 24, ...props }) => (
-  <svg {...props} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="9" />
-  </svg>
-);
-function pickIcon(name) {
-  const icon = window.LucideReact && window.LucideReact[name];
-  if (!icon) console.warn(`Lucide ikonu bulunamadı, yedek gösteriliyor: ${name}`);
-  return icon || FallbackIcon;
-}
-const Library = pickIcon('Library');
-const List = pickIcon('List');
-const BarChart3 = pickIcon('BarChart3');
-const Plus = pickIcon('Plus');
-const Search = pickIcon('Search');
-const ChevronDown = pickIcon('ChevronDown');
-const ChevronRight = pickIcon('ChevronRight');
-const ArrowUp = pickIcon('ArrowUp');
-const ArrowDown = pickIcon('ArrowDown');
-const BookOpen = pickIcon('BookOpen');
-const Edit2 = pickIcon('Edit2');
-const Check = pickIcon('Check');
-const X = pickIcon('X');
-const FolderPlus = pickIcon('FolderPlus');
-const FileText = pickIcon('FileText');
-const MoveRight = pickIcon('MoveRight');
-const Camera = pickIcon('Camera');
-const Trash2 = pickIcon('Trash2');
-const AlertCircle = pickIcon('AlertCircle');
-const WifiOff = pickIcon('WifiOff');
-const GripVertical = pickIcon('GripVertical');
-const Folder = pickIcon('Folder');
-const Download = pickIcon('Download');
-const Upload = pickIcon('Upload');
+// ===================== BOOK CARD =====================
+const BookCard = memo(({ 
+  book, 
+  onOpen, 
+  showIndicator = false, 
+  draggable = false, 
+  folderPath = null, 
+  onNavigate = null,
+  isLibraryView = false 
+}) => {
+  const dnd = useDragDrop();
+  const isDragged = draggable && dnd?.draggedId === book.id;
+  const over = draggable && dnd?.overTarget?.type === 'book' && dnd.overTarget.id === book.id ? dnd.overTarget.placement : null;
+  
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const startPosRef = useRef({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+  const longPressTimerRef = useRef(null);
+  const hasMovedRef = useRef(false);
+  const isPointerDownRef = useRef(false);
 
-const STORAGE_KEY = 'archive_app_data_v3';
-
-const generateId = () => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-};
-
-const normalize = (str = '') =>
-  str.toLowerCase().trim().replace(/\s+/g, ' ').replace(/[^\p{L}\p{N} ]/gu, '');
-
-const initialState = {
-  books: [],
-  folders: [],
-};
-
-const ArchiveContext = createContext();
-const useArchive = () => useContext(ArchiveContext);
-
-const ArchiveProvider = ({ children }) => {
-  const [data, setData] = useState(() => {
-    try {
-      const localData = localStorage.getItem(STORAGE_KEY);
-      return localData ? JSON.parse(localData) : initialState;
-    } catch (e) {
-      return initialState;
-    }
-  });
-
-  const [toast, setToast] = useState(null);
-  const toastTimeoutRef = useRef(null);
-  const saveTimeoutRef = useRef(null);
-
-  const showToast = (msg, type = 'info') => {
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setToast({ msg, type });
-    toastTimeoutRef.current = setTimeout(() => setToast(null), 3000);
-  };
-
+  // Long press timer temizliği
   useEffect(() => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } catch (e) {
-        showToast('Veri kaydedilemedi. Depolama alanı dolu olabilir.', 'error');
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
       }
-    }, 400);
-    return () => clearTimeout(saveTimeoutRef.current);
-  }, [data]);
-
-  const addFolder = (name, parentId = null) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const siblings = data.folders.filter(f => f.parentId === parentId);
-    const order = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
-    const newFolder = { id: generateId(), name: trimmed, parentId, order };
-    setData(prev => ({ ...prev, folders: [...prev.folders, newFolder] }));
-  };
-
-  const deleteFolder = (id) => {
-    setData(prev => {
-      const updatedBooks = prev.books.map(b => b.folderId === id ? { ...b, folderId: null } : b);
-      const updatedFolders = prev.folders
-        .filter(f => f.id !== id)
-        .map(f => f.parentId === id ? { ...f, parentId: null } : f);
-      return { ...prev, books: updatedBooks, folders: updatedFolders };
-    });
-    showToast('Klasör silindi, içerikler ana dizine taşındı.');
-  };
-
-  const reorderFolder = (id, direction) => {
-    setData(prev => {
-      const folder = prev.folders.find(f => f.id === id);
-      if (!folder) return prev;
-      const siblings = prev.folders.filter(f => f.parentId === folder.parentId).sort((a, b) => a.order - b.order);
-      const index = siblings.findIndex(f => f.id === id);
-      if (direction === 'up' && index > 0) {
-        const prevSibling = siblings[index - 1];
-        const newFolders = prev.folders.map(f => {
-          if (f.id === id) return { ...f, order: prevSibling.order };
-          if (f.id === prevSibling.id) return { ...f, order: folder.order };
-          return f;
-        });
-        return { ...prev, folders: newFolders };
-      }
-      if (direction === 'down' && index < siblings.length - 1) {
-        const nextSibling = siblings[index + 1];
-        const newFolders = prev.folders.map(f => {
-          if (f.id === id) return { ...f, order: nextSibling.order };
-          if (f.id === nextSibling.id) return { ...f, order: folder.order };
-          return f;
-        });
-        return { ...prev, folders: newFolders };
-      }
-      return prev;
-    });
-  };
-
-  const addBook = (bookData, folderId = null) => {
-    if (!bookData.title || !bookData.title.trim()) {
-      showToast('Kitap başlığı boş olamaz.', 'error');
-      return false;
-    }
-    const isDuplicate = data.books.some(b => {
-      if (bookData.isbn && b.isbn && b.isbn === bookData.isbn) return true;
-      return normalize(b.title) === normalize(bookData.title) &&
-             normalize(b.author) === normalize(bookData.author);
-    });
-    if (isDuplicate) {
-      showToast('Bu kitap zaten arşivinizde mevcut!', 'error');
-      return false;
-    }
-    const siblings = data.books.filter(b => b.folderId === folderId);
-    const order = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
-    const newBook = {
-      ...bookData,
-      id: generateId(),
-      folderId,
-      order,
-      inLibrary: false,
-      isRead: false,
     };
-    setData(prev => ({ ...prev, books: [...prev.books, newBook] }));
-    showToast('Kitap başarıyla eklendi.');
-    return true;
-  };
+  }, []);
 
-  const updateBook = (id, updates) => {
-    setData(prev => ({
-      ...prev,
-      books: prev.books.map(b => b.id === id ? { ...b, ...updates } : b)
-    }));
-  };
+  const handlePointerDown = useCallback((e) => {
+    e.stopPropagation();
+    
+    startPosRef.current = { x: e.clientX, y: e.clientY };
+    hasMovedRef.current = false;
+    isDraggingRef.current = false;
+    isPointerDownRef.current = true;
 
-  const deleteBook = (id) => {
-    setData(prev => ({ ...prev, books: prev.books.filter(b => b.id !== id) }));
-    showToast('Kitap silindi.');
-  };
-
-  const moveBookToPosition = (bookId, targetFolderId, anchorId = null, placement = 'end') => {
-    setData(prev => {
-      const book = prev.books.find(b => b.id === bookId);
-      if (!book) return prev;
-      const siblings = prev.books
-        .filter(b => b.folderId === targetFolderId && b.id !== bookId)
-        .sort((a, b) => a.order - b.order);
-      let insertIndex = siblings.length;
-      if (anchorId) {
-        const idx = siblings.findIndex(b => b.id === anchorId);
-        if (idx !== -1) insertIndex = placement === 'after' ? idx + 1 : idx;
+    if (!draggable || !dnd) return;
+    
+    e.preventDefault();
+    try { 
+      e.currentTarget.setPointerCapture(e.pointerId); 
+    } catch(err) {}
+    
+    longPressTimerRef.current = setTimeout(() => {
+      if (isPointerDownRef.current) {
+        isDraggingRef.current = true;
+        dnd.startDrag(book.id, e);
       }
-      siblings.splice(insertIndex, 0, { ...book, folderId: targetFolderId });
-      const reordered = siblings.map((b, i) => ({ ...b, order: i }));
-      const reorderedMap = new Map(reordered.map(b => [b.id, b]));
-      return {
-        ...prev,
-        books: prev.books.map(b => reorderedMap.has(b.id) ? reorderedMap.get(b.id) : b)
-      };
-    });
-  };
+    }, 300);
+  }, [draggable, dnd, book.id]);
 
-  const importData = (importedData) => {
-    if (!importedData || !Array.isArray(importedData.books) || !Array.isArray(importedData.folders)) {
-      showToast('Geçersiz yedekleme dosyası formatı!', 'error');
-      return false;
+  const handlePointerMove = useCallback((e) => {
+    e.stopPropagation();
+    
+    const dx = Math.abs(e.clientX - startPosRef.current.x);
+    const dy = Math.abs(e.clientY - startPosRef.current.y);
+    
+    if (dx > 5 || dy > 5) {
+      hasMovedRef.current = true;
     }
-    setData(importedData);
-    showToast('Veriler başarıyla cihaza yüklendi!');
-    return true;
-  };
+
+    if (!draggable || !dnd) return;
+    
+    if (hasMovedRef.current && !isDraggingRef.current && longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+      isDraggingRef.current = true;
+      dnd.startDrag(book.id, e);
+    }
+    
+    if (isDraggingRef.current && dnd.draggedId === book.id) {
+      const offsetY = e.clientY - startPosRef.current.y;
+      setDragOffset({ x: 0, y: offsetY });
+      dnd.updateDrag(e);
+    }
+  }, [draggable, dnd, book.id]);
+
+  const handlePointerUp = useCallback((e) => {
+    e.stopPropagation();
+    
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    const wasDragging = isDraggingRef.current;
+    const wasMoved = hasMovedRef.current;
+
+    // Reset flag
+    isPointerDownRef.current = false;
+
+    // Tıklama algılama - sadece sürükleme yapılmadıysa ve hareket yoksa
+    if (!wasMoved && !wasDragging) {
+      if (onOpen) onOpen(book.id);
+    }
+
+    if (!draggable || !dnd) return;
+
+    try { 
+      e.currentTarget.releasePointerCapture(e.pointerId); 
+    } catch(err) {}
+    
+    if (wasDragging && dnd.draggedId === book.id) {
+      setDragOffset({ x: 0, y: 0 });
+      dnd.endDrag();
+    }
+    
+    isDraggingRef.current = false;
+  }, [draggable, dnd, onOpen, book.id]);
+
+  const handlePointerCancel = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (draggable && dnd) {
+      setDragOffset({ x: 0, y: 0 });
+      dnd.cancelDrag();
+    }
+    isDraggingRef.current = false;
+    hasMovedRef.current = false;
+    isPointerDownRef.current = false;
+  }, [draggable, dnd]);
+
+  const handleNavigateClick = useCallback((e) => {
+    e.stopPropagation();
+    if (onNavigate) onNavigate(book);
+  }, [onNavigate, book]);
 
   return (
-    <ArchiveContext.Provider value={{
-      books: data.books, folders: data.folders,
-      addFolder, deleteFolder, reorderFolder,
-      addBook, updateBook, deleteBook, moveBookToPosition,
-      importData,
-      showToast
-    }}>
-      {children}
-      {toast && (
-        <div className={`fixed bottom-20 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-full shadow-lg z-50 text-sm font-medium flex items-center gap-2 ${toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-zinc-900 text-white'}`}>
-          {toast.type === 'error' && <AlertCircle size={14} />}
-          {toast.msg}
+    <div
+      id={`book-node-${book.id}`}
+      data-book-target={draggable ? book.id : undefined}
+      data-book-target-folder={draggable ? (book.folderId === null ? 'root' : book.folderId) : undefined}
+      style={{
+        marginTop: over === 'after' ? '2rem' : '0.375rem',
+        marginBottom: over === 'before' ? '2rem' : '0.375rem',
+        transition: isDragged ? 'none' : 'margin 0.2s ease, opacity 0.2s ease, transform 0.2s ease',
+        transform: isDragged ? `translateY(${dragOffset.y}px)` : 'none',
+        opacity: isDragged ? 0.9 : 1,
+        zIndex: isDragged ? 50 : 'auto',
+        position: isDragged ? 'relative' : undefined,
+        boxShadow: isDragged ? '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' : undefined,
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        touchAction: draggable ? 'none' : 'auto',
+        msTouchAction: draggable ? 'none' : 'auto',
+      }}
+      className={`group flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 ${!isDragged ? 'border-zinc-100' : ''} ${draggable && !isDragged ? 'cursor-grab active:cursor-grabbing select-none' : ''} ${isDragged ? 'cursor-grabbing border-zinc-300' : ''}`}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <div className="flex-1 flex items-center gap-3 overflow-hidden pointer-events-none">
+        <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
+          {book.cover ? (
+            <img 
+              src={book.cover} 
+              alt={`${book.title} kapağı`}
+              loading="lazy"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-book-open"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>';
+              }}
+            />
+          ) : (
+            <BookOpen size={16} />
+          )}
+        </div>
+        <div className="truncate flex-1">
+          <h4 className="font-semibold text-zinc-800 text-sm truncate">{book.title}</h4>
+          {folderPath ? (
+             <p 
+               className="text-[10px] font-medium text-zinc-500 truncate flex items-center gap-1 mt-1 cursor-pointer pointer-events-auto hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 w-fit px-2 py-0.5 rounded-full"
+               onPointerDown={(e) => e.stopPropagation()}
+               onPointerUp={(e) => { 
+                 e.stopPropagation();
+                 if (onNavigate) onNavigate(book); 
+               }}
+               title="Klasördeki yerine git"
+             >
+               <Folder size={10} /> {folderPath} <MoveRight size={10} className="ml-0.5 opacity-60" />
+             </p>
+          ) : (
+             <p className="text-[11px] text-zinc-500 truncate">{book.publisher || 'Yayınevi Yok'}</p>
+          )}
+        </div>
+        {showIndicator && book.inLibrary && (
+          <span className="ml-auto w-2 h-2 rounded-full bg-zinc-900 shrink-0" title="Kütüphanemde"></span>
+        )}
+      </div>
+    </div>
+  );
+});
+
+// ===================== FOLDER NODE =====================
+const FolderNode = memo(({ 
+  folder, 
+  allFolders, 
+  allBooks, 
+  level = 0, 
+  onAddBook, 
+  onOpenBook, 
+  isLibraryView = false, 
+  draggable = false 
+}) => {
+  const { addFolder, reorderFolder, deleteFolder } = useArchive();
+  const dnd = useDragDrop();
+  const isDropTarget = draggable && dnd?.overTarget?.type === 'folder' && dnd.overTarget.id === folder.id;
+  const [isOpen, setIsOpen] = useState(true);
+  const [isAddingFolder, setIsAddingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [showDelConfirm, setShowDelConfirm] = useState(false);
+
+  // Folder children'ları useMemo ile cache'le
+  const childFolders = useMemo(() => 
+    allFolders
+      .filter(f => f.parentId === folder.id)
+      .sort((a, b) => a.order - b.order),
+    [allFolders, folder.id]
+  );
+
+  const childBooks = useMemo(() => 
+    allBooks
+      .filter(b => b.folderId === folder.id)
+      .sort((a, b) => a.order - b.order),
+    [allBooks, folder.id]
+  );
+
+  useEffect(() => {
+    const handleExpand = () => setIsOpen(true);
+    window.addEventListener(`expand-folder-${folder.id}`, handleExpand);
+    return () => window.removeEventListener(`expand-folder-${folder.id}`, handleExpand);
+  }, [folder.id]);
+
+  const handleAddSubfolder = useCallback((e) => {
+    e.preventDefault();
+    if (newFolderName.trim()) {
+      addFolder(newFolderName.trim(), folder.id);
+      setNewFolderName('');
+      setIsAddingFolder(false);
+      setIsOpen(true);
+    }
+  }, [addFolder, folder.id, newFolderName]);
+
+  const handleToggleOpen = useCallback(() => {
+    setIsOpen(prev => !prev);
+  }, []);
+
+  const handleDeleteClick = useCallback(() => {
+    setShowDelConfirm(true);
+  }, []);
+
+  const handleCancelDelete = useCallback(() => {
+    setShowDelConfirm(false);
+  }, []);
+
+  const handleConfirmDelete = useCallback(() => {
+    deleteFolder(folder.id);
+  }, [deleteFolder, folder.id]);
+
+  const handleAddFolderClick = useCallback(() => {
+    setIsAddingFolder(true);
+  }, []);
+
+  const handleAddBookClick = useCallback(() => {
+    onAddBook(folder.id);
+  }, [onAddBook, folder.id]);
+
+  const handleReorderUp = useCallback(() => {
+    reorderFolder(folder.id, 'up');
+  }, [reorderFolder, folder.id]);
+
+  const handleReorderDown = useCallback(() => {
+    reorderFolder(folder.id, 'down');
+  }, [reorderFolder, folder.id]);
+
+  return (
+    <div className="mb-1" style={{ marginLeft: level > 0 ? '0.75rem' : '0' }}>
+      {showDelConfirm ? (
+         <div className="p-2 mb-2 bg-red-50 rounded-lg border border-red-100 flex items-center justify-between text-xs">
+            <span className="text-red-800 font-medium truncate">Klasör silinsin mi?</span>
+            <div className="flex gap-1 shrink-0 ml-2">
+              <button onClick={handleConfirmDelete} className="px-2 py-1 bg-red-600 text-white rounded">Sil</button>
+              <button onClick={handleCancelDelete} className="px-2 py-1 bg-white text-zinc-600 border rounded">İptal</button>
+            </div>
+         </div>
+      ) : (
+        <div
+          data-folder-target={draggable ? folder.id : undefined}
+          className={`group flex items-center justify-between p-2 rounded-xl transition-colors border ${isDropTarget ? 'bg-zinc-50 border-dashed border-zinc-300' : 'border-transparent hover:bg-zinc-50 hover:border-zinc-100'}`}
+        >
+          <div className="flex items-center gap-2 cursor-pointer flex-1 overflow-hidden" onClick={handleToggleOpen}>
+            {isOpen ? <ChevronDown size={18} className="text-zinc-400 shrink-0" /> : <ChevronRight size={18} className="text-zinc-400 shrink-0" />}
+            <span className="font-semibold text-zinc-700 text-sm truncate">{folder.name}</span>
+            <span className="text-[10px] text-zinc-500 bg-zinc-100 border border-zinc-200 px-1.5 py-0.5 rounded-full shrink-0">{childBooks.length}</span>
+          </div>
+
+          {!isLibraryView && (
+            <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              <button onClick={handleDeleteClick} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Klasörü Sil"><Trash2 size={14} /></button>
+              <button onClick={handleAddFolderClick} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 rounded-lg" title="Alt Klasör Ekle"><FolderPlus size={14} /></button>
+              <button onClick={handleAddBookClick} className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 rounded-lg" title="Kitap Ekle"><Plus size={14} /></button>
+              <div className="flex flex-col ml-1 border-l border-zinc-200 pl-1">
+                <button onClick={handleReorderUp} className="p-0.5 text-zinc-400 hover:text-zinc-800"><ArrowUp size={10} /></button>
+                <button onClick={handleReorderDown} className="p-0.5 text-zinc-400 hover:text-zinc-800"><ArrowDown size={10} /></button>
+              </div>
+            </div>
+          )}
         </div>
       )}
-    </ArchiveContext.Provider>
+
+      {isOpen && (
+        <div className="mt-1 border-l-2 border-zinc-100 ml-3">
+          {isAddingFolder && (
+            <form onSubmit={handleAddSubfolder} className="ml-2 mb-2 flex items-center gap-2">
+              <input 
+                autoFocus 
+                type="text" 
+                placeholder="Klasör adı..." 
+                value={newFolderName} 
+                onChange={e => setNewFolderName(e.target.value)} 
+                className="text-sm px-3 py-1.5 border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-400 bg-zinc-50 w-full" 
+              />
+              <button type="button" onClick={() => setIsAddingFolder(false)} className="p-1.5 text-zinc-400 hover:text-zinc-600 bg-zinc-100 rounded-lg"><X size={16} /></button>
+            </form>
+          )}
+          <div className="mt-1">
+            {childBooks.map(book => (
+              <BookCard 
+                key={book.id} 
+                book={book} 
+                onOpen={onOpenBook} 
+                showIndicator={!isLibraryView} 
+                draggable={draggable} 
+                isLibraryView={isLibraryView}
+              />
+            ))}
+          </div>
+          <div>
+            {childFolders.map(childFolder => (
+              <FolderNode 
+                key={childFolder.id} 
+                folder={childFolder} 
+                allFolders={allFolders} 
+                allBooks={allBooks} 
+                level={level + 1} 
+                onAddBook={onAddBook} 
+                onOpenBook={onOpenBook} 
+                isLibraryView={isLibraryView} 
+                draggable={draggable} 
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+// ===================== ROOT DROP ZONE =====================
+const RootDropZone = ({ children }) => {
+  const dnd = useDragDrop();
+  const isOver = dnd?.overTarget?.type === 'folder' && dnd.overTarget.id === 'root';
+  return (
+    <div data-folder-target="root" className={`space-y-1 min-h-[60px] rounded-xl transition-colors ${isOver ? 'bg-zinc-50' : ''}`}>
+      {children}
+    </div>
   );
 };
 
-const DragContext = createContext(null);
-const useDragDrop = () => useContext(DragContext);
+// ===================== LISTS VIEW =====================
+const ListsView = () => {
+  const { folders, books, addFolder, moveBookToPosition } = useArchive();
+  const [isAddingRoot, setIsAddingRoot] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [activeFolderForAdd, setActiveFolderForAdd] = useState(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [activeBookId, setActiveBookId] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
-const DragDropProvider = ({ children, onDrop }) => {
-  const { books } = useArchive();
-  const [draggedId, setDraggedId] = useState(null);
-  const [overTarget, setOverTarget] = useState(null);
-  const [ghostPos, setGhostPos] = useState({ x: 0, y: 0 });
+  // Memoize root verileri
+  const rootFolders = useMemo(() => 
+    folders.filter(f => f.parentId === null).sort((a, b) => a.order - b.order),
+    [folders]
+  );
+  
+  const rootBooks = useMemo(() => 
+    books.filter(b => b.folderId === null).sort((a, b) => a.order - b.order),
+    [books]
+  );
 
-  const startDrag = (bookId, e) => {
-    setDraggedId(bookId);
-    setGhostPos({ x: e.clientX, y: e.clientY });
-    setOverTarget(null);
-    document.body.classList.add('dnd-active');
-  };
+  // Search için memoized filtered books
+  const filteredBooks = useMemo(() => {
+    if (!searchTerm) return [];
+    const term = searchTerm.toLowerCase();
+    return books.filter(b => 
+      b.title.toLowerCase().includes(term) || 
+      (b.author && b.author.toLowerCase().includes(term))
+    );
+  }, [books, searchTerm]);
 
-  const updateDrag = (e) => {
-    setGhostPos({ x: e.clientX, y: e.clientY });
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const rowEl = el && el.closest('[data-folder-target], [data-book-target]');
-    if (!rowEl) { setOverTarget(null); return; }
-    if (rowEl.dataset.bookTarget) {
-      if (rowEl.dataset.bookTarget === draggedId) { setOverTarget(null); return; }
-      const rect = rowEl.getBoundingClientRect();
-      const placement = (e.clientY - rect.top) < rect.height / 2 ? 'before' : 'after';
-      setOverTarget({ type: 'book', id: rowEl.dataset.bookTarget, folderId: rowEl.dataset.bookTargetFolder, placement });
-    } else if (rowEl.dataset.folderTarget) {
-      setOverTarget({ type: 'folder', id: rowEl.dataset.folderTarget });
+  // Folder path bulma - memoized
+  const getFolderPath = useCallback((folderId) => {
+    if (!folderId) return 'Ana Dizin';
+    let current = folders.find(f => f.id === folderId);
+    const path = [];
+    let maxDepth = 20; // Güvenlik limiti
+    while(current && maxDepth > 0) {
+      path.unshift(current.name);
+      current = folders.find(f => f.id === current.parentId);
+      maxDepth--;
     }
-  };
+    return path.join(' / ') || 'Ana Dizin';
+  }, [folders]);
 
-  const endDrag = () => {
-    if (draggedId && overTarget) {
-      if (overTarget.type === 'folder') {
-        const targetFolderId = overTarget.id === 'root' ? null : overTarget.id;
-        onDrop(draggedId, targetFolderId, null, 'end');
-      } else {
-        const targetFolderId = overTarget.folderId === 'root' ? null : overTarget.folderId;
-        onDrop(draggedId, targetFolderId, overTarget.id, overTarget.placement);
-      }
+  const handleAddRootFolder = useCallback((e) => {
+    e.preventDefault();
+    if (newFolderName.trim()) {
+      addFolder(newFolderName.trim(), null);
+      setNewFolderName('');
+      setIsAddingRoot(false);
     }
-    setDraggedId(null);
-    setOverTarget(null);
-    document.body.classList.remove('dnd-active');
-  };
+  }, [addFolder, newFolderName]);
 
-  const cancelDrag = () => {
-    setDraggedId(null);
-    setOverTarget(null);
-    document.body.classList.remove('dnd-active');
-  };
+  const handleNavigate = useCallback((book) => {
+    setIsSearching(false);
+    setSearchTerm('');
+    
+    let currentFolder = folders.find(f => f.id === book.folderId);
+    const folderIds = [];
+    while(currentFolder) {
+      folderIds.push(currentFolder.id);
+      currentFolder = folders.find(f => f.id === currentFolder.parentId);
+    }
+    
+    // Expand folder'ları aç
+    folderIds.forEach(id => {
+      window.dispatchEvent(new Event(`expand-folder-${id}`));
+    });
 
-  const draggedBook = draggedId ? books.find(b => b.id === draggedId) : null;
+    // Scroll işlemi
+    const el = document.getElementById(`book-node-${book.id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-zinc-900', 'bg-zinc-50');
+      setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-zinc-900', 'bg-zinc-50');
+      }, 2000);
+    }
+  }, [folders]);
+
+  const handleOpenBook = useCallback((id) => {
+    setActiveBookId(id);
+    setDetailModalOpen(true);
+  }, []);
+
+  const handleAddBook = useCallback((folderId) => {
+    setActiveFolderForAdd(folderId);
+    setSearchModalOpen(true);
+  }, []);
+
+  const handleSearchToggle = useCallback(() => {
+    setIsSearching(prev => !prev);
+    if (isSearching) setSearchTerm('');
+  }, [isSearching]);
 
   return (
-    <DragContext.Provider value={{ draggedId, overTarget, startDrag, updateDrag, endDrag, cancelDrag }}>
-      {children}
-      {draggedId && draggedBook && (
-        <div
-          className="fixed z-[100] pointer-events-none bg-zinc-900 text-white text-xs font-medium px-3 py-2 rounded-lg shadow-2xl flex items-center gap-2 max-w-[220px]"
-          style={{ left: ghostPos.x, top: ghostPos.y, transform: 'translate(-50%, -120%)' }}
+    <div className="h-full flex flex-col bg-white relative">
+      <div className="p-4 pt-6 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 shadow-sm min-h-[70px] flex items-center">
+        {isSearching ? (
+          <div className="flex w-full items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 text-zinc-400" size={16} />
+              <input 
+                autoFocus 
+                type="text" 
+                placeholder="Kitap veya yazar ara..." 
+                className="w-full pl-9 pr-3 py-2 bg-zinc-100 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" 
+                value={searchTerm} 
+                onChange={e => setSearchTerm(e.target.value)} 
+              />
+            </div>
+            <button onClick={() => { setIsSearching(false); setSearchTerm(''); }} className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-xl"><X size={18} /></button>
+          </div>
+        ) : (
+          <div className="flex w-full justify-between items-center">
+            <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Listelerim</h1>
+            <div className="flex gap-2">
+              <button onClick={handleSearchToggle} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Listelerde Ara"><Search size={18} /></button>
+              <button onClick={() => setIsAddingRoot(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Klasör Ekle"><FolderPlus size={18} /></button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 pb-24">
+        {isSearching ? (
+          searchTerm.trim() === '' ? (
+            <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+              <Search size={48} className="opacity-20" />
+              <p className="text-center text-sm font-medium">Aramak istediğiniz kitabın adını yazın.</p>
+            </div>
+          ) : filteredBooks.length > 0 ? (
+            <div className="space-y-1">
+              {filteredBooks.map(book => (
+                <BookCard 
+                  key={book.id} 
+                  book={book} 
+                  onOpen={handleOpenBook} 
+                  showIndicator={true} 
+                  folderPath={getFolderPath(book.folderId)} 
+                  onNavigate={handleNavigate} 
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+              <FileText size={48} className="opacity-20" />
+              <p className="text-center text-sm font-medium">Bu isimde bir kitap bulunamadı.</p>
+            </div>
+          )
+        ) : (
+          <>
+            {isAddingRoot && (
+              <form onSubmit={handleAddRootFolder} className="mb-4 flex items-center gap-2 p-2 bg-zinc-50 rounded-xl border border-zinc-200 shadow-inner">
+                <input 
+                  autoFocus 
+                  type="text" 
+                  placeholder="Yeni liste adı..." 
+                  value={newFolderName} 
+                  onChange={e => setNewFolderName(e.target.value)} 
+                  className="flex-1 bg-transparent px-2 focus:outline-none text-zinc-800 text-sm" 
+                />
+                <button type="submit" className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-600"><Check size={16} /></button>
+                <button type="button" onClick={() => setIsAddingRoot(false)} className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-400"><X size={16} /></button>
+              </form>
+            )}
+
+            {books.length === 0 && folders.length === 0 && !isAddingRoot ? (
+              <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+                <FileText size={48} className="opacity-20" />
+                <p className="text-center text-sm font-medium">Klasör veya kitap ekleyerek başlayın.</p>
+              </div>
+            ) : (
+              <DragDropProvider onDrop={(bookId, targetFolderId, anchorId, placement) => moveBookToPosition(bookId, targetFolderId, anchorId, placement)}>
+                <RootDropZone>
+                  {rootBooks.map(book => (
+                    <BookCard 
+                      key={book.id} 
+                      book={book} 
+                      onOpen={handleOpenBook} 
+                      showIndicator={true} 
+                      draggable={true} 
+                    />
+                  ))}
+                  {rootFolders.map(folder => (
+                    <FolderNode 
+                      key={folder.id} 
+                      folder={folder} 
+                      allFolders={folders} 
+                      allBooks={books} 
+                      onAddBook={handleAddBook} 
+                      onOpenBook={handleOpenBook} 
+                      draggable={true} 
+                    />
+                  ))}
+                </RootDropZone>
+              </DragDropProvider>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="absolute bottom-24 right-6 z-20">
+        <button
+          onClick={() => { setActiveFolderForAdd(null); setSearchModalOpen(true); }}
+          className="w-14 h-14 bg-zinc-900 hover:bg-zinc-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center active:scale-95"
+          title="Kitap Ekle"
         >
-          <BookOpen size={12} className="shrink-0" />
-          <span className="truncate">{draggedBook.title}</span>
-        </div>
-      )}
-    </DragContext.Provider>
+          <Plus size={24} />
+        </button>
+      </div>
+
+      <SearchAddModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} folderId={activeFolderForAdd} />
+      <BookDetailModal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} bookId={activeBookId} />
+    </div>
+  );
+};
+
+// ===================== LIBRARY VIEW =====================
+const LibraryView = () => {
+  const { folders, books } = useArchive();
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [activeBookId, setActiveBookId] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Memoize library books
+  const libraryBooks = useMemo(() => books.filter(b => b.inLibrary), [books]);
+
+  // Memoize visible folder IDs
+  const visibleFolderIds = useMemo(() => {
+    const ids = new Set();
+    const addFolderAndAncestors = (folderId) => {
+      if (!folderId || ids.has(folderId)) return;
+      ids.add(folderId);
+      const folder = folders.find(f => f.id === folderId);
+      if (folder?.parentId) addFolderAndAncestors(folder.parentId);
+    };
+    libraryBooks.forEach(book => {
+      if (book.folderId) addFolderAndAncestors(book.folderId);
+    });
+    return ids;
+  }, [libraryBooks, folders]);
+
+  // Memoize visible folders
+  const visibleFolders = useMemo(() => 
+    folders.filter(f => visibleFolderIds.has(f.id)),
+    [folders, visibleFolderIds]
+  );
+
+  const rootFolders = useMemo(() => 
+    visibleFolders.filter(f => f.parentId === null).sort((a, b) => a.order - b.order),
+    [visibleFolders]
+  );
+
+  const rootBooks = useMemo(() => 
+    libraryBooks.filter(b => b.folderId === null).sort((a, b) => a.order - b.order),
+    [libraryBooks]
+  );
+
+  // Search için memoized filtered books
+  const filteredBooks = useMemo(() => {
+    if (!searchTerm) return [];
+    const term = searchTerm.toLowerCase();
+    return libraryBooks.filter(b => 
+      b.title.toLowerCase().includes(term) || 
+      (b.author && b.author.toLowerCase().includes(term))
+    );
+  }, [libraryBooks, searchTerm]);
+
+  const getFolderPath = useCallback((folderId) => {
+    if (!folderId) return 'Ana Dizin';
+    let current = folders.find(f => f.id === folderId);
+    const path = [];
+    let maxDepth = 20;
+    while(current && maxDepth > 0) {
+      path.unshift(current.name);
+      current = folders.find(f => f.id === current.parentId);
+      maxDepth--;
+    }
+    return path.join(' / ') || 'Ana Dizin';
+  }, [folders]);
+
+  const handleNavigate = useCallback((book) => {
+    setIsSearching(false);
+    setSearchTerm('');
+    
+    let currentFolder = folders.find(f => f.id === book.folderId);
+    const folderIds = [];
+    while(currentFolder) {
+      folderIds.push(currentFolder.id);
+      currentFolder = folders.find(f => f.id === currentFolder.parentId);
+    }
+    
+    folderIds.forEach(id => {
+      window.dispatchEvent(new Event(`expand-folder-${id}`));
+    });
+
+    const el = document.getElementById(`book-node-${book.id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-zinc-900', 'bg-zinc-50');
+      setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-zinc-900', 'bg-zinc-50');
+      }, 2000);
+    }
+  }, [folders]);
+
+  const handleOpenBook = useCallback((id) => {
+    setActiveBookId(id);
+    setDetailModalOpen(true);
+  }, []);
+
+  const handleSearchToggle = useCallback(() => {
+    setIsSearching(prev => !prev);
+    if (isSearching) setSearchTerm('');
+  }, [isSearching]);
+
+  return (
+    <div className="h-full flex flex-col bg-white">
+      <div className="p-4 pt-6 pb-3 sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-zinc-100 shadow-sm min-h-[70px] flex flex-col justify-center">
+        {isSearching ? (
+          <div className="flex w-full items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 text-zinc-400" size={16} />
+              <input 
+                autoFocus 
+                type="text" 
+                placeholder="Kütüphanede ara..." 
+                className="w-full pl-9 pr-3 py-2 bg-zinc-100 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" 
+                value={searchTerm} 
+                onChange={e => setSearchTerm(e.target.value)} 
+              />
+            </div>
+            <button onClick={() => { setIsSearching(false); setSearchTerm(''); }} className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-xl"><X size={18} /></button>
+          </div>
+        ) : (
+          <div className="flex w-full justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Kütüphanem</h1>
+              <p className="text-[11px] text-zinc-500 mt-0.5 uppercase font-semibold tracking-wider">Sahip Olduğunuz Kitaplar</p>
+            </div>
+            {libraryBooks.length > 0 && (
+              <button onClick={handleSearchToggle} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Kütüphanede Ara"><Search size={18} /></button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 pb-24">
+        {isSearching ? (
+          searchTerm.trim() === '' ? (
+            <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+              <Search size={48} className="opacity-20" />
+              <p className="text-center text-sm font-medium">Aramak istediğiniz kitabın adını yazın.</p>
+            </div>
+          ) : filteredBooks.length > 0 ? (
+            <div className="space-y-1">
+              {filteredBooks.map(book => (
+                <BookCard 
+                  key={book.id} 
+                  book={book} 
+                  onOpen={handleOpenBook} 
+                  isLibraryView={true} 
+                  folderPath={getFolderPath(book.folderId)} 
+                  onNavigate={handleNavigate} 
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+              <FileText size={48} className="opacity-20" />
+              <p className="text-center text-sm font-medium">Kütüphanenizde bu isimde kitap yok.</p>
+            </div>
+          )
+        ) : libraryBooks.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
+            <Library size={48} className="opacity-20" />
+            <p className="text-center text-sm font-medium px-4">Kütüphanenizde kitap yok.<br/><span className="text-xs font-normal">Listelerinizdeki kitapları "Kütüphanemde" olarak işaretleyin.</span></p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {rootBooks.map(book => (
+              <BookCard 
+                key={book.id} 
+                book={book} 
+                onOpen={handleOpenBook} 
+                isLibraryView={true} 
+              />
+            ))}
+            {rootFolders.map(folder => (
+              <FolderNode 
+                key={folder.id} 
+                folder={folder} 
+                allFolders={visibleFolders} 
+                allBooks={libraryBooks} 
+                onOpenBook={handleOpenBook} 
+                isLibraryView={true} 
+              />
+            ))}
+          </div>
+        )}
+      </div>
+      <BookDetailModal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} bookId={activeBookId} />
+    </div>
+  );
+};
+
+// ===================== STATS VIEW =====================
+const StatBox = memo(({ label, value }) => (
+  <div className="bg-white border border-zinc-100 p-4 rounded-xl flex flex-col justify-center shadow-sm">
+    <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-1">{label}</span>
+    <span className="text-lg font-bold text-zinc-900 truncate">{value}</span>
+  </div>
+));
+
+const StatsView = () => {
+  const { books, folders, importData, showToast } = useArchive();
+  const fileInputRef = useRef(null);
+
+  const handleExport = useCallback(() => {
+    const data = { books, folders };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kitap-listem-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Veriler başarıyla yedeklendi.', 'success');
+  }, [books, folders, showToast]);
+
+  const handleImport = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result);
+        
+        // JSON validasyonu
+        if (typeof parsed !== 'object' || parsed === null) {
+          throw new Error('Geçersiz veri formatı');
+        }
+        
+        // Books ve folders kontrolü
+        const hasBooks = Array.isArray(parsed.books);
+        const hasFolders = Array.isArray(parsed.folders);
+        
+        if (!hasBooks && !hasFolders) {
+          throw new Error('Geçersiz veri yapısı: books veya folders dizisi bulunamadı');
+        }
+        
+        // Veri boyutu kontrolü (örn: 50MB limit)
+        const jsonSize = new Blob([event.target?.result]).size;
+        if (jsonSize > 50 * 1024 * 1024) {
+          throw new Error('Dosya çok büyük (maksimum 50MB)');
+        }
+        
+        importData(parsed);
+        showToast('Veriler başarıyla içe aktarıldı.', 'success');
+      } catch (err) {
+        showToast(`Dosya okunamadı: ${err.message}`, 'error');
+      }
+    };
+    
+    reader.onerror = () => {
+      showToast('Dosya okunamadı.', 'error');
+    };
+    
+    reader.readAsText(file);
+    e.target.value = '';
+  }, [importData, showToast]);
+
+  const stats = useMemo(() => {
+    const libBooks = books.filter(b => b.inLibrary);
+    
+    const calc = (arr) => {
+      if (arr.length === 0) return null;
+      
+      let totalPages = 0;
+      let totalPrice = 0;
+      let longest = arr[0];
+      let shortest = arr[0];
+      const authors = {};
+      
+      for (const b of arr) {
+        const p = parseInt(b.pageCount) || 0;
+        totalPages += p;
+        totalPrice += parseFloat(b.price) || 0;
+        
+        const longestPages = parseInt(longest.pageCount) || 0;
+        if (p > longestPages) longest = b;
+        
+        const shortestPages = parseInt(shortest.pageCount) || Infinity;
+        if (p > 0 && p < shortestPages) shortest = b;
+        
+        if (b.author) {
+          authors[b.author] = (authors[b.author] || 0) + 1;
+        }
+      }
+      
+      let favAuth = '-';
+      let max = 0;
+      for (const [author, count] of Object.entries(authors)) {
+        if (count > max) {
+          max = count;
+          favAuth = author;
+        }
+      }
+      
+      const shortestPages = parseInt(shortest.pageCount) || 0;
+      
+      return {
+        total: arr.length,
+        pages: totalPages,
+        avg: arr.length > 0 ? Math.round(totalPages / arr.length) : 0,
+        long: longest?.title || '-',
+        short: shortestPages > 0 ? shortest.title : '-',
+        fav: favAuth,
+        price: totalPrice
+      };
+    };
+    
+    const listS = calc(books) || { total: 0, pages: 0, avg: 0, long: '-', short: '-', fav: '-', price: 0 };
+    const libS = calc(libBooks) || { total: 0, pages: 0, avg: 0, long: '-', short: '-', fav: '-', price: 0 };
+    
+    const read = libBooks.filter(b => b.isRead);
+    const unread = libBooks.filter(b => !b.isRead);
+    const rPages = read.reduce((s, b) => s + (parseInt(b.pageCount) || 0), 0);
+    const uPages = unread.reduce((s, b) => s + (parseInt(b.pageCount) || 0), 0);
+    
+    return {
+      list: listS,
+      lib: libS,
+      read: {
+        rCount: read.length,
+        rPages: rPages,
+        uCount: unread.length,
+        uPages: uPages
+      }
+    };
+  }, [books]);
+
+  return (
+    <div className="h-full flex flex-col bg-zinc-50">
+      <div className="p-4 pt-6 pb-3 sticky top-0 bg-zinc-50/90 backdrop-blur-md z-10 border-b border-zinc-200">
+        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Verilerim</h1>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-6">
+        <section>
+          <h2 className="text-sm font-bold text-zinc-700 mb-3 flex items-center gap-1.5">
+            <List size={16} className="text-zinc-400"/> Listelerim
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            <StatBox label="Toplam Kitap" value={stats.list.total} />
+            <StatBox label="Toplam Sayfa" value={stats.list.pages.toLocaleString()} />
+            <StatBox label="Ort. Sayfa" value={stats.list.avg} />
+            <StatBox label="Favori Yazar" value={stats.list.fav} />
+            <div className="col-span-2 bg-white border border-zinc-100 p-3 rounded-xl shadow-sm">
+              <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block mb-1">En Uzun Kitap</span>
+              <span className="text-sm font-semibold text-zinc-800 truncate block">{stats.list.long}</span>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-sm font-bold text-zinc-700 mb-3 flex items-center gap-1.5">
+            <Library size={16} className="text-zinc-400"/> Kütüphanem
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            <StatBox label="Toplam Kitap" value={stats.lib.total} />
+            <StatBox label="Toplam Değer" value={`₺${stats.lib.price.toLocaleString()}`} />
+            <StatBox label="Toplam Sayfa" value={stats.lib.pages.toLocaleString()} />
+            <StatBox label="Favori Yazar" value={stats.lib.fav} />
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-sm font-bold text-zinc-700 mb-3 flex items-center gap-1.5">
+            <BookOpen size={16} className="text-zinc-400"/> Okuma (Kütüphane)
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="col-span-2 bg-zinc-900 p-4 rounded-xl flex items-center justify-between shadow-md">
+              <div>
+                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-0.5">Okunan Kitap</p>
+                <p className="text-xl font-bold text-white">{stats.read.rCount}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-0.5">Okunan Sayfa</p>
+                <p className="text-xl font-bold text-white">{stats.read.rPages.toLocaleString()}</p>
+              </div>
+            </div>
+            <StatBox label="Okunmayan Kitap" value={stats.read.uCount} />
+            <StatBox label="Okunmayan Sayfa" value={stats.read.uPages.toLocaleString()} />
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-sm font-bold text-zinc-700 mb-3 flex items-center gap-1.5">
+            <Download size={16} className="text-zinc-400"/> Yedekleme & Geri Yükleme
+          </h2>
+          <div className="bg-white border border-zinc-100 p-4 rounded-xl shadow-sm flex flex-col gap-3">
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              Uygulama verilerinizi cihazınıza dosya olarak indirebilir veya daha önce indirdiğiniz bir dosyayı (başka bir cihazdan) içeri aktarabilirsiniz.
+            </p>
+            <div className="flex gap-2">
+              <button 
+                onClick={handleExport} 
+                className="flex-1 py-2.5 bg-zinc-900 text-white rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
+              >
+                <Download size={16} /> Yedekle
+              </button>
+              <button 
+                onClick={() => fileInputRef.current?.click()} 
+                className="flex-1 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-xl text-sm font-medium hover:bg-zinc-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <Upload size={16} /> Geri Yükle
+              </button>
+              <input 
+                type="file" 
+                accept=".json" 
+                ref={fileInputRef} 
+                onChange={handleImport} 
+                className="hidden" 
+              />
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
   );
 };
