@@ -231,67 +231,134 @@ const ArchiveProvider = ({ children }) => {
 const DragContext = createContext(null);
 const useDragDrop = () => useContext(DragContext);
 
+const AUTOSCROLL_EDGE = 70;
+const AUTOSCROLL_MAX_SPEED = 14;
+
 const DragDropProvider = ({ children, onDrop }) => {
   const { books } = useArchive();
   const [draggedId, setDraggedId] = useState(null);
   const [overTarget, setOverTarget] = useState(null);
-  const [ghostPos, setGhostPos] = useState({ x: 0, y: 0 });
+  const [cardSize, setCardSize] = useState({ width: 0, height: 0 });
 
-  const startDrag = (bookId, e) => {
-    setDraggedId(bookId);
-    setGhostPos({ x: e.clientX, y: e.clientY });
+  const ghostRef = useRef(null);
+  const pointerRef = useRef({ x: 0, y: 0 });
+  const offsetRef = useRef({ x: 0, y: 0 });
+  const rafRef = useRef(null);
+  const draggedIdRef = useRef(null);
+  const overTargetRef = useRef(null);
+
+  const runHitTest = (x, y) => {
+    if (ghostRef.current) ghostRef.current.style.visibility = 'hidden';
+    const el = document.elementFromPoint(x, y);
+    if (ghostRef.current) ghostRef.current.style.visibility = 'visible';
+    const rowEl = el && el.closest('[data-folder-target], [data-book-target]');
+    if (!rowEl) {
+      if (overTargetRef.current !== null) { overTargetRef.current = null; setOverTarget(null); }
+      return;
+    }
+    let next = null;
+    if (rowEl.dataset.bookTarget) {
+      if (rowEl.dataset.bookTarget === draggedIdRef.current) {
+        next = null;
+      } else {
+        const rect = rowEl.getBoundingClientRect();
+        const placement = (y - rect.top) < rect.height / 2 ? 'before' : 'after';
+        next = { type: 'book', id: rowEl.dataset.bookTarget, folderId: rowEl.dataset.bookTargetFolder, placement };
+      }
+    } else if (rowEl.dataset.folderTarget) {
+      next = { type: 'folder', id: rowEl.dataset.folderTarget };
+    }
+    const prev = overTargetRef.current;
+    const same = prev && next && prev.type === next.type && prev.id === next.id && prev.placement === next.placement;
+    if (!same) {
+      overTargetRef.current = next;
+      setOverTarget(next);
+    }
+  };
+
+  const tick = () => {
+    const { x, y } = pointerRef.current;
+    if (ghostRef.current) {
+      ghostRef.current.style.transform = `translate3d(${x - offsetRef.current.x}px, ${y - offsetRef.current.y}px, 0)`;
+    }
+    const scrollEl = document.querySelector('[data-dnd-scroll]');
+    if (scrollEl) {
+      const rect = scrollEl.getBoundingClientRect();
+      let dy = 0;
+      if (y < rect.top + AUTOSCROLL_EDGE) {
+        const ratio = 1 - Math.max(0, y - rect.top) / AUTOSCROLL_EDGE;
+        dy = -ratio * AUTOSCROLL_MAX_SPEED;
+      } else if (y > rect.bottom - AUTOSCROLL_EDGE) {
+        const ratio = 1 - Math.max(0, rect.bottom - y) / AUTOSCROLL_EDGE;
+        dy = ratio * AUTOSCROLL_MAX_SPEED;
+      }
+      if (dy !== 0) scrollEl.scrollTop += dy;
+    }
+    runHitTest(x, y);
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  const startDrag = (book, rect, x, y) => {
+    draggedIdRef.current = book.id;
+    setDraggedId(book.id);
+    setCardSize({ width: rect.width, height: rect.height });
+    offsetRef.current = { x: x - rect.left, y: y - rect.top };
+    pointerRef.current = { x, y };
+    overTargetRef.current = null;
     setOverTarget(null);
     document.body.classList.add('dnd-active');
+    rafRef.current = requestAnimationFrame(tick);
   };
 
-  const updateDrag = (e) => {
-    setGhostPos({ x: e.clientX, y: e.clientY });
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const rowEl = el && el.closest('[data-folder-target], [data-book-target]');
-    if (!rowEl) { setOverTarget(null); return; }
-    if (rowEl.dataset.bookTarget) {
-      if (rowEl.dataset.bookTarget === draggedId) { setOverTarget(null); return; }
-      const rect = rowEl.getBoundingClientRect();
-      const placement = (e.clientY - rect.top) < rect.height / 2 ? 'before' : 'after';
-      setOverTarget({ type: 'book', id: rowEl.dataset.bookTarget, folderId: rowEl.dataset.bookTargetFolder, placement });
-    } else if (rowEl.dataset.folderTarget) {
-      setOverTarget({ type: 'folder', id: rowEl.dataset.folderTarget });
-    }
+  const updateDrag = (x, y) => {
+    pointerRef.current = { x, y };
   };
 
-  const endDrag = () => {
-    if (draggedId && overTarget) {
-      if (overTarget.type === 'folder') {
-        const targetFolderId = overTarget.id === 'root' ? null : overTarget.id;
-        onDrop(draggedId, targetFolderId, null, 'end');
+  const finishDrag = (commit) => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    if (commit && draggedIdRef.current && overTargetRef.current) {
+      const t = overTargetRef.current;
+      if (t.type === 'folder') {
+        const targetFolderId = t.id === 'root' ? null : t.id;
+        onDrop(draggedIdRef.current, targetFolderId, null, 'end');
       } else {
-        const targetFolderId = overTarget.folderId === 'root' ? null : overTarget.folderId;
-        onDrop(draggedId, targetFolderId, overTarget.id, overTarget.placement);
+        const targetFolderId = t.folderId === 'root' ? null : t.folderId;
+        onDrop(draggedIdRef.current, targetFolderId, t.id, t.placement);
       }
     }
+    draggedIdRef.current = null;
+    overTargetRef.current = null;
     setDraggedId(null);
     setOverTarget(null);
     document.body.classList.remove('dnd-active');
   };
 
-  const cancelDrag = () => {
-    setDraggedId(null);
-    setOverTarget(null);
-    document.body.classList.remove('dnd-active');
-  };
+  const endDrag = () => finishDrag(true);
+  const cancelDrag = () => finishDrag(false);
 
   const draggedBook = draggedId ? books.find(b => b.id === draggedId) : null;
 
   return (
-    <DragContext.Provider value={{ draggedId, overTarget, startDrag, updateDrag, endDrag, cancelDrag }}>
+    <DragContext.Provider value={{ draggedId, overTarget, cardSize, startDrag, updateDrag, endDrag, cancelDrag }}>
       {children}
       {draggedId && draggedBook && (
         <div
-          className="fixed z-[100] pointer-events-none bg-zinc-900 text-white text-xs font-medium px-3 py-2 rounded-lg shadow-2xl flex items-center gap-2 max-w-[220px]"
-          style={{ left: ghostPos.x, top: ghostPos.y, transform: 'translate(-50%, -120%)' }}
+          ref={ghostRef}
+          className="fixed z-[100] top-0 left-0 pointer-events-none bg-white border border-zinc-200 rounded-xl shadow-2xl flex items-center gap-3 p-3 scale-105"
+          style={{ width: cardSize.width, willChange: 'transform' }}
         >
-          <BookOpen size={12} className="shrink-0" />
-          <span className="truncate">{draggedBook.title}</span>
+          <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
+            {draggedBook.cover ? (
+              <img src={draggedBook.cover} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <BookOpen size={16} />
+            )}
+          </div>
+          <div className="truncate flex-1">
+            <h4 className="font-semibold text-zinc-800 text-sm truncate">{draggedBook.title}</h4>
+            <p className="text-[11px] text-zinc-500 truncate">{draggedBook.publisher || 'Yayınevi Yok'}</p>
+          </div>
         </div>
       )}
     </DragContext.Provider>
