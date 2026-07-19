@@ -56,10 +56,19 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+const AppLayoutWithDnd = () => {
+  const { moveBookToPosition } = useArchive();
+  return (
+    <DragDropProvider onDrop={moveBookToPosition}>
+      <AppLayout />
+    </DragDropProvider>
+  );
+};
+
 function App() {
   return (
     <ErrorBoundary>
-      <ArchiveProvider><AppLayout /></ArchiveProvider>
+      <ArchiveProvider><AppLayoutWithDnd /></ArchiveProvider>
     </ErrorBoundary>
   );
 }
