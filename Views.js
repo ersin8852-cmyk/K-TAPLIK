@@ -1,12 +1,85 @@
-const BookCard = ({ book, onOpen, showIndicator = false, folderPath = null, onNavigate = null }) => {
-  const handleClick = (e) => {
+const BookCard = ({ book, onOpen, showIndicator = false, folderPath = null, onNavigate = null, containerFolderId = null }) => {
+  const { draggedId, startDrag, updateDrag, endDrag, cancelDrag } = useDragDrop();
+  const cardRef = useRef(null);
+  const pressTimer = useRef(null);
+  const startPos = useRef({ x: 0, y: 0 });
+  const movedRef = useRef(false);
+  const draggingRef = useRef(false);
+
+  const clearPressTimer = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+
+  const handlePointerMove = (e) => {
+    if (draggingRef.current) {
+      e.preventDefault();
+      updateDrag(e.clientX, e.clientY);
+      return;
+    }
+    const dx = e.clientX - startPos.current.x;
+    const dy = e.clientY - startPos.current.y;
+    if (Math.hypot(dx, dy) > 8) {
+      movedRef.current = true;
+      clearPressTimer();
+    }
+  };
+
+  const stopTracking = () => {
+    window.removeEventListener('pointermove', handlePointerMove);
+    window.removeEventListener('pointerup', handlePointerUp);
+    window.removeEventListener('pointercancel', handlePointerCancel);
+    if (cardRef.current) cardRef.current.style.touchAction = '';
+  };
+
+  const handlePointerUp = () => {
+    clearPressTimer();
+    const wasDragging = draggingRef.current;
+    draggingRef.current = false;
+    stopTracking();
+    if (wasDragging) endDrag();
+  };
+
+  const handlePointerCancel = () => {
+    clearPressTimer();
+    const wasDragging = draggingRef.current;
+    draggingRef.current = false;
+    stopTracking();
+    if (wasDragging) cancelDrag();
+  };
+
+  const handlePointerDown = (e) => {
+    if (!containerFolderId) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    startPos.current = { x: e.clientX, y: e.clientY };
+    movedRef.current = false;
+    draggingRef.current = false;
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerCancel);
+    pressTimer.current = setTimeout(() => {
+      if (!movedRef.current && cardRef.current) {
+        draggingRef.current = true;
+        cardRef.current.style.touchAction = 'none';
+        const rect = cardRef.current.getBoundingClientRect();
+        startDrag(book, rect, e.clientX, e.clientY);
+      }
+    }, 300);
+  };
+
+  const handleClick = () => {
+    if (movedRef.current || draggingRef.current) return;
     if (onOpen) onOpen(book.id);
   };
+
+  const isBeingDragged = draggedId === book.id;
 
   return (
     <div
       id={`book-node-${book.id}`}
-      className="group flex items-center justify-between p-3 bg-white border border-zinc-100 rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 cursor-pointer transition-colors my-1.5"
+      ref={cardRef}
+      data-book-target={book.id}
+      data-book-target-folder={containerFolderId || 'root'}
+      className={`group flex items-center justify-between p-3 bg-white border border-zinc-100 rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 cursor-pointer transition-colors my-1.5 select-none ${isBeingDragged ? 'opacity-0' : ''}`}
+      style={{ touchAction: 'pan-y' }}
+      onPointerDown={handlePointerDown}
       onClick={handleClick}
     >
       <div className="flex-1 flex items-center gap-3 overflow-hidden">
@@ -42,8 +115,66 @@ const BookCard = ({ book, onOpen, showIndicator = false, folderPath = null, onNa
   );
 };
 
+const BookList = ({ ids, books, folderKey, onOpen, showIndicator = false, isLibraryView = false }) => {
+  const { draggedId, overTarget, cardSize } = useDragDrop();
+  const nodeRefs = useRef(new Map());
+  const prevRects = useRef(new Map());
+
+  const visibleIds = draggedId ? ids.filter(id => id !== draggedId) : ids;
+
+  let previewIndex = null;
+  if (draggedId && overTarget && overTarget.type === 'book' && overTarget.folderId === folderKey) {
+    const idx = visibleIds.indexOf(overTarget.id);
+    if (idx !== -1) previewIndex = overTarget.placement === 'after' ? idx + 1 : idx;
+  }
+
+  useLayoutEffect(() => {
+    const newRects = new Map();
+    nodeRefs.current.forEach((el, id) => { if (el) newRects.set(id, el.getBoundingClientRect()); });
+    nodeRefs.current.forEach((el, id) => {
+      if (!el) return;
+      const prev = prevRects.current.get(id);
+      const next = newRects.get(id);
+      if (prev && next) {
+        const dy = prev.top - next.top;
+        if (Math.abs(dy) > 0.5) {
+          el.style.transition = 'none';
+          el.style.transform = `translateY(${dy}px)`;
+          requestAnimationFrame(() => {
+            el.style.transition = 'transform 220ms cubic-bezier(0.2, 0, 0, 1)';
+            el.style.transform = '';
+          });
+        }
+      }
+    });
+    prevRects.current = newRects;
+  });
+
+  const renderList = [...visibleIds];
+  if (previewIndex !== null) renderList.splice(previewIndex, 0, '__gap__');
+
+  return renderList.map((id) => {
+    if (id === '__gap__') {
+      return (
+        <div
+          key="__gap__"
+          style={{ height: cardSize.height || 64, transition: 'height 220ms cubic-bezier(0.2,0,0,1)' }}
+        />
+      );
+    }
+    const book = books.find(b => b.id === id);
+    if (!book) return null;
+    return (
+      <div key={id} ref={el => { if (el) nodeRefs.current.set(id, el); else nodeRefs.current.delete(id); }}>
+        <BookCard book={book} onOpen={onOpen} showIndicator={showIndicator} isLibraryView={isLibraryView} containerFolderId={folderKey} />
+      </div>
+    );
+  });
+};
+
 const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpenBook, isLibraryView = false }) => {
   const { addFolder, reorderFolder, deleteFolder } = useArchive();
+  const { overTarget, draggedId } = useDragDrop();
   const [isOpen, setIsOpen] = useState(true);
   const [isAddingFolder, setIsAddingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -66,6 +197,8 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
     }
   };
 
+  const isDropTarget = draggedId && overTarget && overTarget.type === 'folder' && overTarget.id === folder.id;
+
   return (
     <div className="mb-1" style={{ marginLeft: level > 0 ? '0.75rem' : '0' }}>
       {showDelConfirm ? (
@@ -77,7 +210,10 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
             </div>
          </div>
       ) : (
-        <div className="group flex items-center justify-between p-2 rounded-xl transition-colors border border-transparent hover:bg-zinc-50 hover:border-zinc-100">
+        <div
+          data-folder-target={folder.id}
+          className={`group flex items-center justify-between p-2 rounded-xl transition-colors border ${isDropTarget ? 'bg-zinc-900/5 border-zinc-900 border-dashed' : 'border-transparent hover:bg-zinc-50 hover:border-zinc-100'}`}
+        >
           <div className="flex items-center gap-2 cursor-pointer flex-1 overflow-hidden" onClick={() => setIsOpen(!isOpen)}>
             {isOpen ? <ChevronDown size={18} className="text-zinc-400 shrink-0" /> : <ChevronRight size={18} className="text-zinc-400 shrink-0" />}
             <span className="font-semibold text-zinc-700 text-sm truncate">{folder.name}</span>
@@ -107,7 +243,7 @@ const FolderNode = ({ folder, allFolders, allBooks, level = 0, onAddBook, onOpen
             </form>
           )}
           <div className="mt-1">
-            {childBooks.map(book => <BookCard key={book.id} book={book} onOpen={onOpenBook} showIndicator={!isLibraryView} />)}
+            <BookList ids={childBooks.map(b => b.id)} books={allBooks} folderKey={folder.id} onOpen={onOpenBook} showIndicator={!isLibraryView} isLibraryView={isLibraryView} />
           </div>
           <div>
             {childFolders.map(childFolder => (
