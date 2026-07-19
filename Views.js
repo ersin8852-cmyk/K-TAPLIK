@@ -1,3 +1,5 @@
+const { useLayoutEffect } = React;
+
 const BookCard = ({ book, onOpen, showIndicator = false, folderPath = null, onNavigate = null, containerFolderId = null }) => {
   const { draggedId, startDrag, updateDrag, endDrag, cancelDrag } = useDragDrop();
   const cardRef = useRef(null);
