@@ -476,7 +476,7 @@ const LibraryView = () => {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 pb-24">
+     <div className="flex-1 overflow-y-auto p-4 pb-24" data-dnd-scroll>
         {isSearching ? (
            searchTerm.trim() === '' ? (
             <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
@@ -499,8 +499,8 @@ const LibraryView = () => {
             <p className="text-center text-sm font-medium px-4">Kütüphanenizde kitap yok.<br/><span className="text-xs font-normal">Listelerinizdeki kitapları "Kütüphanemde" olarak işaretleyin.</span></p>
           </div>
         ) : (
-          <div className="space-y-1">
-             {rootBooks.map(book => <BookCard key={book.id} book={book} onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} isLibraryView={true} />)}
+          <div className="space-y-1" data-folder-target="root">
+             <BookList ids={rootBooks.map(b => b.id)} books={libraryBooks} folderKey="root" onOpen={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} isLibraryView={true} />
             {rootFolders.map(folder => <FolderNode key={folder.id} folder={folder} allFolders={visibleFolders} allBooks={libraryBooks} onOpenBook={(id) => { setActiveBookId(id); setDetailModalOpen(true); }} isLibraryView={true} />)}
           </div>
         )}
