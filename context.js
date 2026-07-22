@@ -27,6 +27,7 @@ const X = pickIcon('X');
 const FolderPlus = pickIcon('FolderPlus');
 const FileText = pickIcon('FileText');
 const MoveRight = pickIcon('MoveRight');
+const CornerDownRight = pickIcon('CornerDownRight');
 const Camera = pickIcon('Camera');
 const GripVertical = pickIcon('GripVertical');
 const Trash2 = pickIcon('Trash2');

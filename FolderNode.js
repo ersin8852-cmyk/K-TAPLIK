@@ -41,10 +41,10 @@ const FolderNode = React.memo(({ folder, allFolders, allBooks, onOpenFolder, isL
             {draggedId && (
               <div 
                 data-drop-inside={folder.id}
-                className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-16 z-20 flex items-center justify-center pointer-events-auto"
+                className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-24 z-20 flex items-center justify-center pointer-events-auto"
               >
-                <div className="bg-zinc-900/10 text-zinc-600 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm pointer-events-none transition-transform hover:scale-110">
-                  <List size={16} />
+                <div className="bg-white/90 shadow-md border border-zinc-100 text-zinc-700 w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-md pointer-events-none transition-transform hover:scale-105">
+                  <CornerDownRight size={20} />
                 </div>
               </div>
             )}
