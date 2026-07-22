@@ -327,12 +327,17 @@ const useDraggableItem = (item, containerFolderId, onClick) => {
     }
     if (Math.abs(speed) > 0.5) {
       sc.scrollTop += speed;
+      return speed;
     }
+    return 0;
   };
 
-  const runAutoScroll = (clientY) => {
-    doAutoScroll(clientY);
-    autoScrollRAF.current = requestAnimationFrame(() => runAutoScroll(clientY));
+  const runAutoScroll = (clientX, clientY) => {
+    const speed = doAutoScroll(clientY);
+    if (speed !== 0) {
+      updateDrag(clientX, clientY);
+    }
+    autoScrollRAF.current = requestAnimationFrame(() => runAutoScroll(clientX, clientY));
   };
 
   const stopAutoScroll = () => {
@@ -347,7 +352,7 @@ const useDraggableItem = (item, containerFolderId, onClick) => {
       e.preventDefault();
       updateDrag(e.clientX, e.clientY);
       stopAutoScroll();
-      runAutoScroll(e.clientY);
+      runAutoScroll(e.clientX, e.clientY);
       return;
     }
 
