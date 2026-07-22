@@ -2,14 +2,14 @@ const ListsView = () => {
   const { folders, books, addFolder } = useArchive();
   const { overTarget } = useOverTarget();
   const { draggedId } = useDraggedItem();
-  const [isAddingRoot, setIsAddingRoot] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [activeFolderForAdd, setActiveFolderForAdd] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [activeBookId, setActiveBookId] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
+  const [listCreateModalOpen, setListCreateModalOpen] = useState(false);
 
   const [activeFolderId, setActiveFolderId] = useState(null);
 
@@ -26,14 +26,6 @@ const ListsView = () => {
   const filteredBooks = searchTerm 
     ? books.filter(b => b.title.toLowerCase().includes(searchTerm.toLowerCase()) || (b.author && b.author.toLowerCase().includes(searchTerm.toLowerCase())))
     : [];
-
-  const handleAddRootFolder = (e) => {
-    e.preventDefault();
-    if (newFolderName.trim()) {
-      addFolder(newFolderName.trim(), activeFolderId);
-      setNewFolderName(''); setIsAddingRoot(false);
-    }
-  };
 
   const getFolderPath = (folderId) => {
       if (!folderId) return 'Ana Dizin';
@@ -97,7 +89,6 @@ const ListsView = () => {
               </button>
               <div className="flex gap-2 ml-2 shrink-0">
                 <button onClick={() => setIsSearching(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Listelerde Ara"><Search size={18} /></button>
-                <button onClick={() => setIsAddingRoot(true)} className="p-2 text-zinc-600 border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors" title="Klasör Ekle"><FolderPlus size={18} /></button>
               </div>
             </div>
             {breadcrumbs.map((bc, idx) => (
@@ -130,16 +121,7 @@ const ListsView = () => {
             </div>
           )
         ) : (
-          <>
-            {isAddingRoot && (
-              <form onSubmit={handleAddRootFolder} className="mb-4 flex items-center gap-2 p-2 bg-zinc-50 rounded-xl border border-zinc-200 shadow-inner">
-                <input autoFocus type="text" placeholder="Yeni liste adı..." value={newFolderName} onChange={e => setNewFolderName(e.target.value)} className="flex-1 bg-transparent px-2 focus:outline-none text-zinc-800 text-sm" />
-                <button type="submit" className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-600"><Check size={16} /></button>
-                <button type="button" onClick={() => setIsAddingRoot(false)} className="p-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-400"><X size={16} /></button>
-              </form>
-            )}
-
-            {currentBooks.length === 0 && currentFolders.length === 0 && !isAddingRoot ? (
+            {currentBooks.length === 0 && currentFolders.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
                 <List size={48} className="opacity-20" />
                 <p className="text-center text-sm font-medium">Bu liste boş. Kitap veya yeni liste ekleyin.</p>
@@ -150,22 +132,113 @@ const ListsView = () => {
                   <BookList ids={currentBooks.map(b => b.id)} books={books} folderKey={activeFolderId || "root"} onOpen={handleOpenBook} showIndicator={true} />
               </div>
             )}
-          </>
         )}
       </div>
 
       <div className="absolute bottom-24 right-6 z-20">
-        <button
-          onClick={() => { setActiveFolderForAdd(activeFolderId); setSearchModalOpen(true); }}
-          className="w-14 h-14 bg-zinc-900 hover:bg-zinc-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center active:scale-95"
-          title="Kitap Ekle"
-        >
-          <Plus size={24} />
-        </button>
+        {fabMenuOpen && (
+           <div className="fixed inset-0 z-40 bg-white/60 backdrop-blur-sm" onClick={() => setFabMenuOpen(false)} />
+        )}
+        <div className="relative z-50 flex flex-col items-end gap-3">
+          {fabMenuOpen && (
+            <div className="flex flex-col items-end gap-3 mb-2 animate-in slide-in-from-bottom-4 fade-in duration-200">
+              <button onClick={() => { setFabMenuOpen(false); setListCreateModalOpen(true); }} className="flex items-center gap-3 group">
+                <span className="bg-white px-3 py-2 rounded-xl shadow-md text-[15px] font-semibold text-zinc-700 group-hover:text-zinc-900 transition-colors">Liste Oluştur</span>
+                <div className="w-12 h-12 bg-white text-zinc-600 rounded-full shadow-md flex items-center justify-center group-hover:bg-zinc-50 group-hover:text-zinc-900 transition-colors">
+                  <List size={20} />
+                </div>
+              </button>
+              <button onClick={() => { setFabMenuOpen(false); setActiveFolderForAdd(activeFolderId); setSearchModalOpen(true); }} className="flex items-center gap-3 group">
+                <span className="bg-white px-3 py-2 rounded-xl shadow-md text-[15px] font-semibold text-zinc-700 group-hover:text-zinc-900 transition-colors">Kitap Ekle</span>
+                <div className="w-12 h-12 bg-white text-zinc-600 rounded-full shadow-md flex items-center justify-center group-hover:bg-zinc-50 group-hover:text-zinc-900 transition-colors">
+                  <BookOpen size={20} />
+                </div>
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => setFabMenuOpen(!fabMenuOpen)}
+            className={`w-14 h-14 bg-zinc-900 hover:bg-zinc-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center active:scale-95 ${fabMenuOpen ? 'rotate-45 bg-zinc-700' : ''}`}
+            title="Ekle"
+          >
+            <Plus size={24} />
+          </button>
+        </div>
       </div>
 
       <SearchAddModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} folderId={activeFolderForAdd} />
       <BookDetailModal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} bookId={activeBookId} />
+      <ListCreateModal isOpen={listCreateModalOpen} onClose={() => setListCreateModalOpen(false)} onCreate={addFolder} parentId={activeFolderId} />
+    </div>
+  );
+};
+
+const ListCreateModal = ({ isOpen, onClose, onCreate, parentId }) => {
+  const [name, setName] = useState('Liste A');
+  const [color, setColor] = useState('#71717a');
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setName('Liste A');
+      setColor('#71717a');
+      setTimeout(() => {
+        if (inputRef.current) inputRef.current.select();
+      }, 100);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (name.trim()) {
+      onCreate(name.trim(), parentId, color);
+      onClose();
+    }
+  };
+
+  const colors = ['#71717a', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl z-10 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex justify-between items-center p-4 border-b border-zinc-100">
+          <h2 className="text-lg font-bold text-zinc-900">Yeni Liste Oluştur</h2>
+          <button onClick={onClose} className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-full transition-colors"><X size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-4">
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Liste Adı</label>
+            <input 
+              ref={inputRef}
+              type="text" 
+              value={name} 
+              onChange={e => setName(e.target.value)} 
+              className="w-full px-3 py-2 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent text-zinc-900 font-medium"
+              autoFocus
+            />
+          </div>
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-zinc-700 mb-2">Renk Seçimi</label>
+            <div className="flex gap-2 flex-wrap">
+              {colors.map(c => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  className={`w-8 h-8 rounded-full transition-transform ${color === c ? 'ring-2 ring-offset-2 ring-zinc-900 scale-110' : 'hover:scale-110'}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+          <button type="submit" className="w-full py-3 bg-zinc-900 text-white rounded-xl font-semibold hover:bg-zinc-800 transition-colors">
+            Oluştur
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

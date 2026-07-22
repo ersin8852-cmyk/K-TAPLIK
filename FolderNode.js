@@ -27,8 +27,8 @@ const FolderNode = React.memo(({ folder, allFolders, allBooks, onOpenFolder, isL
           onClick={() => onOpenFolder(folder.id)}
         >
           <div className="flex items-center gap-3 flex-1 overflow-hidden">
-            <div className="w-10 h-10 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center shrink-0">
-              <List size={20} className="text-zinc-500" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm text-white" style={{ backgroundColor: folder.color || '#71717a' }}>
+              <List size={20} />
             </div>
             <div className="flex flex-col overflow-hidden">
               <span className="font-bold text-zinc-800 text-[15px] truncate">{folder.name}</span>

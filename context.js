@@ -89,12 +89,12 @@ const ArchiveProvider = ({ children }) => {
     return () => clearTimeout(saveTimeoutRef.current);
   }, [data]);
 
-  const addFolder = (name, parentId = null) => {
+  const addFolder = (name, parentId = null, color = '#71717a') => {
     const trimmed = name.trim();
     if (!trimmed) return;
     const siblings = data.folders.filter(f => f.parentId === parentId);
     const order = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
-    const newFolder = { id: generateId(), name: trimmed, parentId, order };
+    const newFolder = { id: generateId(), name: trimmed, parentId, order, color };
     setData(prev => ({ ...prev, folders: [...prev.folders, newFolder] }));
   };
 
