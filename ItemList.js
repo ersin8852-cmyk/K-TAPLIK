@@ -70,7 +70,11 @@ const ItemList = React.memo(({ ids, items, folders, books, folderKey, onOpenBook
     const item = items.find(i => i.id === id);
     if (!item) return null;
     return (
-      <div key={id} ref={el => { if (el) nodeRefs.current.set(id, el); else nodeRefs.current.delete(id); }}>
+      <div 
+        key={id} 
+        ref={el => { if (el) nodeRefs.current.set(id, el); else nodeRefs.current.delete(id); }}
+        style={draggedId === id ? { height: 0, overflow: 'hidden', opacity: 0, pointerEvents: 'none', margin: 0, padding: 0 } : undefined}
+      >
         {item._type === 'folder' ? (
           <FolderNode folder={item} allFolders={folders} allBooks={books} onOpenFolder={onOpenFolder} isLibraryView={isLibraryView} />
         ) : (
