@@ -504,41 +504,38 @@ const DragDropProvider = ({ children, onDrop }) => {
     lastHitTestTime.current = now;
 
     if (ghostRef.current) ghostRef.current.style.visibility = 'hidden';
-    const el = document.elementFromPoint(x, y);
+    const elements = document.elementsFromPoint(x, y);
     if (ghostRef.current) ghostRef.current.style.visibility = 'visible';
-    const gapEl = el && el.closest('[data-drop-gap]');
-    if (gapEl) return;
-    const dropInsideEl = el && el.closest('[data-drop-inside]');
-    const itemEl = el && el.closest('[data-item-target]');
-    const rootEl = el && el.closest('[data-folder-target="root"]');
+    
+    if (elements.some(el => el.hasAttribute('data-drop-gap'))) return;
+
+    const dropInsideEl = elements.find(el => el.hasAttribute('data-drop-inside') && el.dataset.dropInside !== draggedIdRef.current);
+    const itemEl = elements.find(el => el.hasAttribute('data-item-target') && el.dataset.itemTarget !== draggedIdRef.current);
+    const rootEl = elements.find(el => el.hasAttribute('data-folder-target'));
 
     let next = null;
 
     if (dropInsideEl) {
       next = { type: 'folder', id: dropInsideEl.dataset.dropInside, placement: 'inside' };
     } else if (itemEl) {
-      if (itemEl.dataset.itemTarget === draggedIdRef.current) {
-        next = null;
+      const rect = itemEl.getBoundingClientRect();
+      const ratio = (y - rect.top) / rect.height;
+      const currentPlacement = overTargetRef.current && overTargetRef.current.id === itemEl.dataset.itemTarget
+        ? overTargetRef.current.placement : null;
+      let placement;
+      if (currentPlacement === 'before') {
+        placement = ratio > 0.65 ? 'after' : 'before';
+      } else if (currentPlacement === 'after') {
+        placement = ratio < 0.35 ? 'before' : 'after';
       } else {
-        const rect = itemEl.getBoundingClientRect();
-        const ratio = (y - rect.top) / rect.height;
-        const currentPlacement = overTargetRef.current && overTargetRef.current.id === itemEl.dataset.itemTarget
-          ? overTargetRef.current.placement : null;
-        let placement;
-        if (currentPlacement === 'before') {
-          placement = ratio > 0.65 ? 'after' : 'before';
-        } else if (currentPlacement === 'after') {
-          placement = ratio < 0.35 ? 'before' : 'after';
-        } else {
-          placement = ratio < 0.5 ? 'before' : 'after';
-        }
-        next = { 
-          type: itemEl.dataset.itemType, 
-          id: itemEl.dataset.itemTarget, 
-          folderId: itemEl.dataset.itemFolder, 
-          placement 
-        };
+        placement = ratio < 0.5 ? 'before' : 'after';
       }
+      next = { 
+        type: itemEl.dataset.itemType, 
+        id: itemEl.dataset.itemTarget, 
+        folderId: itemEl.dataset.itemFolder, 
+        placement 
+      };
     } else if (rootEl) {
       next = { type: 'folder', id: 'root', placement: 'inside' };
     }
