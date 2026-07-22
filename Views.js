@@ -1,15 +1,49 @@
+const useHistoryModal = (modalId) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const handlePopState = (e) => {
+      const stateModal = e.state?.modal;
+      if (isOpen && stateModal !== modalId) setIsOpen(false);
+      if (!isOpen && stateModal === modalId) setIsOpen(true);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isOpen, modalId]);
+
+  const openModal = React.useCallback(() => {
+    if (!isOpen) {
+      setIsOpen(true);
+      const s = window.history.state || {};
+      window.history.pushState({ ...s, modal: modalId }, '');
+    }
+  }, [isOpen, modalId]);
+
+  const closeModal = React.useCallback(() => {
+    if (isOpen) {
+      if (window.history.state?.modal === modalId) {
+        window.history.back();
+      } else {
+        setIsOpen(false);
+      }
+    }
+  }, [isOpen, modalId]);
+
+  return [isOpen, openModal, closeModal];
+};
+
 const ListsView = ({ activeFolderId, setActiveFolderId }) => {
   const { folders, books, addFolder } = useArchive();
   const { overTarget } = useOverTarget();
   const { draggedId } = useDraggedItem();
-  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [searchModalOpen, openSearchModal, closeSearchModal] = useHistoryModal('search');
   const [activeFolderForAdd, setActiveFolderForAdd] = useState(null);
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [detailModalOpen, openDetailModal, closeDetailModal] = useHistoryModal('detail-lists');
   const [activeBookId, setActiveBookId] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [fabMenuOpen, setFabMenuOpen] = useState(false);
-  const [listCreateModalOpen, setListCreateModalOpen] = useState(false);
+  const [fabMenuOpen, openFabMenu, closeFabMenu] = useHistoryModal('fab');
+  const [listCreateModalOpen, openListCreateModal, closeListCreateModal] = useHistoryModal('list-create');
 
   const currentFolders = folders.filter(f => f.parentId === activeFolderId);
   const currentBooks = books.filter(b => b.folderId === activeFolderId);
@@ -64,13 +98,13 @@ const ListsView = ({ activeFolderId, setActiveFolderId }) => {
 
   const handleOpenBook = React.useCallback((id) => {
     setActiveBookId(id);
-    setDetailModalOpen(true);
-  }, []);
+    openDetailModal();
+  }, [openDetailModal]);
 
   const handleAddBook = React.useCallback((fid) => {
     setActiveFolderForAdd(fid);
-    setSearchModalOpen(true);
-  }, []);
+    openSearchModal();
+  }, [openSearchModal]);
 
   return (
     <div className="h-full flex flex-col bg-white relative">
@@ -150,18 +184,18 @@ const ListsView = ({ activeFolderId, setActiveFolderId }) => {
 
       <div className="absolute bottom-24 right-6 z-20">
         {fabMenuOpen && (
-           <div className="fixed inset-0 z-40 bg-white/60 backdrop-blur-sm" onClick={() => setFabMenuOpen(false)} />
+           <div className="fixed inset-0 z-40 bg-white/60 backdrop-blur-sm" onClick={closeFabMenu} />
         )}
         <div className="relative z-50 flex flex-col items-end gap-3">
           {fabMenuOpen && (
             <div className="flex flex-col items-end gap-3 mb-2 animate-in slide-in-from-bottom-4 fade-in duration-200">
-              <button onClick={() => { setFabMenuOpen(false); setListCreateModalOpen(true); }} className="flex items-center gap-3 group">
+              <button onClick={() => { closeFabMenu(); openListCreateModal(); }} className="flex items-center gap-3 group">
                 <span className="bg-white px-3 py-2 rounded-xl shadow-md text-[15px] font-semibold text-zinc-700 group-hover:text-zinc-900 transition-colors">Liste Oluştur</span>
                 <div className="w-12 h-12 bg-white text-zinc-600 rounded-full shadow-md flex items-center justify-center group-hover:bg-zinc-50 group-hover:text-zinc-900 transition-colors">
                   <List size={20} />
                 </div>
               </button>
-              <button onClick={() => { setFabMenuOpen(false); setActiveFolderForAdd(activeFolderId); setSearchModalOpen(true); }} className="flex items-center gap-3 group">
+              <button onClick={() => { closeFabMenu(); setActiveFolderForAdd(activeFolderId); openSearchModal(); }} className="flex items-center gap-3 group">
                 <span className="bg-white px-3 py-2 rounded-xl shadow-md text-[15px] font-semibold text-zinc-700 group-hover:text-zinc-900 transition-colors">Kitap Ekle</span>
                 <div className="w-12 h-12 bg-white text-zinc-600 rounded-full shadow-md flex items-center justify-center group-hover:bg-zinc-50 group-hover:text-zinc-900 transition-colors">
                   <BookOpen size={20} />
@@ -170,7 +204,7 @@ const ListsView = ({ activeFolderId, setActiveFolderId }) => {
             </div>
           )}
           <button
-            onClick={() => setFabMenuOpen(!fabMenuOpen)}
+            onClick={() => fabMenuOpen ? closeFabMenu() : openFabMenu()}
             className={`w-14 h-14 bg-zinc-900 hover:bg-zinc-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center active:scale-95 ${fabMenuOpen ? 'rotate-45 bg-zinc-700' : ''}`}
             title="Ekle"
           >
@@ -179,9 +213,9 @@ const ListsView = ({ activeFolderId, setActiveFolderId }) => {
         </div>
       </div>
 
-      <SearchAddModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} folderId={activeFolderForAdd} />
-      <BookDetailModal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} bookId={activeBookId} />
-      <ListCreateModal isOpen={listCreateModalOpen} onClose={() => setListCreateModalOpen(false)} onCreate={addFolder} parentId={activeFolderId} />
+      <SearchAddModal isOpen={searchModalOpen} onClose={closeSearchModal} folderId={activeFolderForAdd} />
+      <BookDetailModal isOpen={detailModalOpen} onClose={closeDetailModal} bookId={activeBookId} />
+      <ListCreateModal isOpen={listCreateModalOpen} onClose={closeListCreateModal} onCreate={addFolder} parentId={activeFolderId} />
     </div>
   );
 };
@@ -260,7 +294,7 @@ const LibraryView = ({ activeFolderId, setActiveFolderId }) => {
   const { folders, books } = useArchive();
   const { overTarget } = useOverTarget();
   const { draggedId } = useDraggedItem();
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [detailModalOpen, openDetailModal, closeDetailModal] = useHistoryModal('detail-library');
   const [activeBookId, setActiveBookId] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -333,8 +367,8 @@ const LibraryView = ({ activeFolderId, setActiveFolderId }) => {
 
   const handleOpenBook = React.useCallback((id) => {
     setActiveBookId(id);
-    setDetailModalOpen(true);
-  }, []);
+    openDetailModal();
+  }, [openDetailModal]);
 
   return (
     <div className="h-full flex flex-col bg-white">
@@ -409,7 +443,7 @@ const LibraryView = ({ activeFolderId, setActiveFolderId }) => {
           </div>
         )}
       </div>
-      <BookDetailModal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} bookId={activeBookId} />
+      <BookDetailModal isOpen={detailModalOpen} onClose={closeDetailModal} bookId={activeBookId} />
     </div>
   );
 };
