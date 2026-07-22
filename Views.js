@@ -15,7 +15,11 @@ const useHistoryModal = (modalId) => {
     if (!isOpen) {
       setIsOpen(true);
       const s = window.history.state || {};
-      window.history.pushState({ ...s, modal: modalId }, '');
+      if (s.modal) {
+        window.history.replaceState({ ...s, modal: modalId }, '');
+      } else {
+        window.history.pushState({ ...s, modal: modalId }, '');
+      }
     }
   }, [isOpen, modalId]);
 
@@ -29,7 +33,7 @@ const useHistoryModal = (modalId) => {
     }
   }, [isOpen, modalId]);
 
-  return [isOpen, openModal, closeModal];
+  return [isOpen, openModal, closeModal, setIsOpen];
 };
 
 const ListsView = ({ activeFolderId, setActiveFolderId }) => {
@@ -42,7 +46,7 @@ const ListsView = ({ activeFolderId, setActiveFolderId }) => {
   const [activeBookId, setActiveBookId] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [fabMenuOpen, openFabMenu, closeFabMenu] = useHistoryModal('fab');
+  const [fabMenuOpen, openFabMenu, closeFabMenu, setFabMenuOpen] = useHistoryModal('fab');
   const [listCreateModalOpen, openListCreateModal, closeListCreateModal] = useHistoryModal('list-create');
 
   const currentFolders = folders.filter(f => f.parentId === activeFolderId);
