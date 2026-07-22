@@ -1,7 +1,6 @@
 const SearchAddModal = ({ isOpen, onClose, folderId }) => {
   const { addBook, showToast } = useArchive();
   const [query, setQuery] = useState('');
-  const [publisherFilter, setPublisherFilter] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
@@ -12,7 +11,7 @@ const SearchAddModal = ({ isOpen, onClose, folderId }) => {
 
   useEffect(() => {
     if (!isOpen) {
-      setQuery(''); setPublisherFilter(''); setResults([]); setHasSearched(false); setShowCamera(false);
+      setQuery(''); setResults([]); setHasSearched(false); setShowCamera(false);
     }
   }, [isOpen]);
 
@@ -47,39 +46,26 @@ const SearchAddModal = ({ isOpen, onClose, folderId }) => {
       }
     };
 
-    const detectUltraWide = (capabilities, settings) => {
-      if (capabilities.zoom && capabilities.zoom.min < 1.0) return true;
-      if (settings.focalLength && settings.focalLength < 24) return true;
-      return false; // emin değilsek false
-    };
-
-    const calculateIdealZoom = (capabilities) => {
-      if (!capabilities.zoom) return null;
-      if (capabilities.zoom.min < 1.0) return 1.0;
-      if (capabilities.zoom.max >= 2.0) return 2.0; // ultra wide şüphesiyle 2x
-      return null;
-    };
-
     const optimizeOpenedCamera = async (track) => {
       if (!track || !isComponentMounted) return;
       try {
         const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-        const settings = track.getSettings ? track.getSettings() : {};
 
         let newConstraints = {};
-        if (capabilities.focusMode?.includes("continuous")) newConstraints.focusMode = "continuous";
+        
+        if (capabilities.focusDistance) {
+          newConstraints.focusDistance = { ideal: capabilities.focusDistance.min || 0 };
+        } else if (capabilities.focusMode?.includes("macro")) {
+          newConstraints.focusMode = "macro";
+        } else if (capabilities.focusMode?.includes("continuous")) {
+          newConstraints.focusMode = "continuous";
+        }
+
         if (capabilities.exposureMode?.includes("continuous")) newConstraints.exposureMode = "continuous";
         if (capabilities.whiteBalanceMode?.includes("continuous")) newConstraints.whiteBalanceMode = "continuous";
 
         if (Object.keys(newConstraints).length > 0) {
           await safelyApplyConstraints(track, newConstraints);
-        }
-
-        if (detectUltraWide(capabilities, settings)) {
-          const idealZoom = calculateIdealZoom(capabilities);
-          if (idealZoom) {
-            await safelyApplyConstraints(track, { zoom: idealZoom });
-          }
         }
       } catch (err) {
         console.warn("Optimizasyon başarısız, orijinal ayarlarla devam ediliyor.", err);
@@ -157,11 +143,8 @@ const SearchAddModal = ({ isOpen, onClose, folderId }) => {
     }];
   };
 
-  const fetchByTitle = async (q, publisher) => {
+  const fetchByTitle = async (q) => {
     let searchQ = q || '';
-    if (publisher && publisher.trim()) {
-      searchQ = searchQ ? `${searchQ} publisher:"${publisher.trim()}"` : `publisher:"${publisher.trim()}"`;
-    }
     const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(searchQ)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,cover_edition_key,edition_key,isbn,publisher`);
     if (!res.ok) throw new Error();
     const json = await res.json();
@@ -195,13 +178,12 @@ const SearchAddModal = ({ isOpen, onClose, folderId }) => {
 
   const performSearch = async (searchQuery) => {
     const q = (searchQuery ?? query).trim();
-    const pub = publisherFilter.trim();
-    if (!q && !pub) return;
+    if (!q) return;
     setLoading(true); setResults([]); setHasSearched(true);
     const cleanQuery = q.replace(/[- ]/g, '');
     const isIsbn = q.length > 0 && /^\d{10,13}$/.test(cleanQuery);
     try {
-      const items = isIsbn ? await fetchByIsbn(cleanQuery) : await fetchByTitle(q, pub);
+      const items = isIsbn ? await fetchByIsbn(cleanQuery) : await fetchByTitle(q);
       setResults(items);
       if (items.length === 0) showToast('Sonuç bulunamadı.', 'error');
     } catch (err) {
@@ -231,8 +213,7 @@ const SearchAddModal = ({ isOpen, onClose, folderId }) => {
               <Camera size={20} />
             </button>
           </div>
-          <input type="text" placeholder="Yayınevi (opsiyonel filtre)..." className="w-full px-4 py-2.5 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-800 bg-zinc-50 text-sm" value={publisherFilter} onChange={e => setPublisherFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && performSearch()} />
-          <button onClick={() => performSearch()} disabled={loading || (!query.trim() && !publisherFilter.trim())} className="w-full py-2.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 font-medium transition-colors disabled:opacity-50">
+          <button onClick={() => performSearch()} disabled={loading || !query.trim()} className="w-full py-2.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 font-medium transition-colors disabled:opacity-50">
             {loading ? 'Aranıyor...' : 'Ara'}
           </button>
         </div>
