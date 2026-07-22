@@ -2,7 +2,7 @@ const { useLayoutEffect } = React;
 
 // _isDragActive logic moved to context.js
 
-const BookCard = React.memo(({ book, onOpen, showIndicator = false, folderPath = null, onNavigate = null, containerFolderId = null }) => {
+const BookCard = React.memo(({ book, onOpen, showIndicator = false, folderPath = null, onNavigate = null, containerFolderId = null, index }) => {
   const handleNavigateOrOpen = (item) => {
     if (onNavigate) {
       onNavigate(item);
@@ -25,6 +25,9 @@ const BookCard = React.memo(({ book, onOpen, showIndicator = false, folderPath =
       onClick={handleClick}
     >
       <div className="flex-1 flex items-center gap-3 overflow-hidden">
+        {index != null && (
+          <span className="text-zinc-400 font-semibold text-sm w-5 text-right shrink-0">{index}.</span>
+        )}
         <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
           {book.cover ? (
             <img src={book.cover} alt="" className="w-full h-full object-cover" />

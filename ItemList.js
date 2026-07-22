@@ -79,9 +79,9 @@ const ItemList = React.memo(({ ids, items, folders, books, folderKey, onOpenBook
         style={draggedId === id ? { height: 0, overflow: 'hidden', opacity: 0, pointerEvents: 'none', margin: 0, padding: 0 } : undefined}
       >
         {item._type === 'folder' ? (
-          <FolderNode folder={item} allFolders={folders} allBooks={books} onOpenFolder={onOpenFolder} onEdit={onEditFolder} isLibraryView={isLibraryView} />
+          <FolderNode folder={item} allFolders={folders} allBooks={books} onOpenFolder={onOpenFolder} onEdit={onEditFolder} isLibraryView={isLibraryView} index={visibleIds.indexOf(id) + 1} />
         ) : (
-          <BookCard book={item} onOpen={onOpenBook} showIndicator={showIndicator} isLibraryView={isLibraryView} containerFolderId={folderKey} />
+          <BookCard book={item} onOpen={onOpenBook} showIndicator={showIndicator} isLibraryView={isLibraryView} containerFolderId={folderKey} index={visibleIds.indexOf(id) + 1} />
         )}
       </div>
     );

@@ -1,4 +1,4 @@
-const FolderNode = React.memo(({ folder, allFolders, allBooks, onOpenFolder, onEdit, isLibraryView = false }) => {
+const FolderNode = React.memo(({ folder, allFolders, allBooks, onOpenFolder, onEdit, isLibraryView = false, index }) => {
   const { overTarget } = useOverTarget();
   const { draggedId } = useDraggedItem();
 
@@ -37,6 +37,9 @@ const FolderNode = React.memo(({ folder, allFolders, allBooks, onOpenFolder, onE
           </div>
         )}
         <div className="flex items-center gap-3 flex-1 overflow-hidden pointer-events-none">
+          {index != null && (
+            <span className="text-zinc-400 font-semibold text-sm w-5 text-right shrink-0">{index}.</span>
+          )}
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm text-white" style={{ backgroundColor: folder.color || '#71717a' }}>
             <List size={20} />
           </div>
