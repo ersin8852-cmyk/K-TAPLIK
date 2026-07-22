@@ -477,7 +477,7 @@ const useDraggableItem = (item, containerFolderId, onClick) => {
 };
 
 const DragDropProvider = ({ children, onDrop }) => {
-  const { books } = useArchive();
+  const { books, folders } = useArchive();
   const [draggedId, setDraggedId] = useState(null);
   const [overTarget, setOverTarget] = useState(null);
   const [cardSize, setCardSize] = useState({ width: 0, height: 0 });
