@@ -193,7 +193,7 @@ const ListsView = ({ activeFolderId, setActiveFolderId }) => {
         )}
       </div>
 
-      <div className="absolute bottom-24 right-6 z-20">
+      <div className="absolute bottom-24 right-6 z-50">
         {fabMenuOpen && (
            <div className="fixed inset-0 z-40 bg-white/60 backdrop-blur-sm" onClick={closeFabMenu} />
         )}
