@@ -1,5 +1,5 @@
 const BookDetailModal = ({ bookId, isOpen, onClose }) => {
-  const { books, updateBook, deleteBook, folders, showToast, moveBookToPosition } = useArchive();
+  const { books, updateBook, deleteBook, folders, showToast, moveItemToPosition } = useArchive();
   const book = books.find(b => b.id === bookId);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
@@ -59,9 +59,9 @@ const BookDetailModal = ({ bookId, isOpen, onClose }) => {
               <button onClick={() => setShowMove(!showMove)} className="flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900 font-medium py-2"><MoveRight size={16} /> Klasörü Değiştir</button>
               {showMove && (
                 <div className="mt-2 p-2 border border-zinc-200 rounded-xl bg-white max-h-40 overflow-y-auto shadow-inner">
-                  <div onClick={() => { moveBookToPosition(book.id, null); setShowMove(false); }} className={`p-2.5 text-sm rounded-lg cursor-pointer transition-colors ${book.folderId === null ? 'bg-zinc-100 font-semibold text-zinc-900' : 'hover:bg-zinc-50 text-zinc-600'}`}>/ Ana Dizin</div>
+                  <div onClick={() => { moveItemToPosition(book.id, 'book', null); setShowMove(false); }} className={`p-2.5 text-sm rounded-lg cursor-pointer transition-colors ${book.folderId === null ? 'bg-zinc-100 font-semibold text-zinc-900' : 'hover:bg-zinc-50 text-zinc-600'}`}>/ Ana Dizin</div>
                   {folders.map(f => (
-                    <div key={f.id} onClick={() => { moveBookToPosition(book.id, f.id); setShowMove(false); }} className={`p-2.5 text-sm rounded-lg cursor-pointer transition-colors ${book.folderId === f.id ? 'bg-zinc-100 font-semibold text-zinc-900' : 'hover:bg-zinc-50 text-zinc-600'}`}>{f.name}</div>
+                    <div key={f.id} onClick={() => { moveItemToPosition(book.id, 'book', f.id); setShowMove(false); }} className={`p-2.5 text-sm rounded-lg cursor-pointer transition-colors ${book.folderId === f.id ? 'bg-zinc-100 font-semibold text-zinc-900' : 'hover:bg-zinc-50 text-zinc-600'}`}>{f.name}</div>
                   ))}
                 </div>
               )}

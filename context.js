@@ -237,7 +237,7 @@ const ArchiveProvider = ({ children }) => {
     <ArchiveContext.Provider value={{
       books: data.books, folders: data.folders,
       addFolder, deleteFolder, reorderFolder,
-      addBook, updateBook, deleteBook, moveBookToPosition,
+      addBook, updateBook, deleteBook, moveItemToPosition,
       importData,
       showToast
     }}>
