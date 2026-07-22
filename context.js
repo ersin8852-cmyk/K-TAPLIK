@@ -21,7 +21,6 @@ const ChevronRight = pickIcon('ChevronRight');
 const ArrowUp = pickIcon('ArrowUp');
 const ArrowDown = pickIcon('ArrowDown');
 const BookOpen = pickIcon('BookOpen');
-const List = pickIcon('List');
 const Edit2 = pickIcon('Edit2');
 const Check = pickIcon('Check');
 const X = pickIcon('X');
