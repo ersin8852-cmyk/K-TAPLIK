@@ -416,19 +416,24 @@ const DragDropProvider = ({ children, onDrop }) => {
           {draggedId && draggedBook && (
             <div
               ref={ghostRef}
-              className="fixed z-[100] top-0 left-0 pointer-events-none bg-white border border-zinc-200 rounded-xl shadow-2xl flex items-center gap-3 p-3 scale-105"
+              className="fixed z-[100] top-0 left-0 pointer-events-none"
               style={{ width: cardSize.width, willChange: 'transform' }}
             >
-              <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
-                {draggedBook.cover ? (
-                  <img src={draggedBook.cover} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <BookOpen size={16} />
-                )}
-              </div>
-              <div className="truncate flex-1">
-                <h4 className="font-semibold text-zinc-800 text-sm truncate">{draggedBook.title}</h4>
-                <p className="text-[11px] text-zinc-500 truncate">{draggedBook.publisher || 'Yayınevi Yok'}</p>
+              <div 
+                className="bg-white border border-zinc-200 rounded-xl shadow-2xl flex items-center gap-3 p-3 transform transition-transform duration-200 scale-50"
+                style={{ transformOrigin: `${offsetRef.current.x}px ${offsetRef.current.y}px` }}
+              >
+                <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
+                  {draggedBook.cover ? (
+                    <img src={draggedBook.cover} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <BookOpen size={16} />
+                  )}
+                </div>
+                <div className="truncate flex-1">
+                  <h4 className="font-semibold text-zinc-800 text-sm truncate">{draggedBook.title}</h4>
+                  <p className="text-[11px] text-zinc-500 truncate">{draggedBook.publisher || 'Yayınevi Yok'}</p>
+                </div>
               </div>
             </div>
           )}
