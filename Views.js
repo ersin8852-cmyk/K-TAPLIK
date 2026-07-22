@@ -1,4 +1,4 @@
-const ListsView = () => {
+const ListsView = ({ activeFolderId, setActiveFolderId }) => {
   const { folders, books, addFolder } = useArchive();
   const { overTarget } = useOverTarget();
   const { draggedId } = useDraggedItem();
@@ -10,8 +10,6 @@ const ListsView = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [listCreateModalOpen, setListCreateModalOpen] = useState(false);
-
-  const [activeFolderId, setActiveFolderId] = useState(null);
 
   const currentFolders = folders.filter(f => f.parentId === activeFolderId);
   const currentBooks = books.filter(b => b.folderId === activeFolderId);
@@ -258,7 +256,7 @@ const ListCreateModal = ({ isOpen, onClose, onCreate, parentId }) => {
   );
 };
 
-const LibraryView = () => {
+const LibraryView = ({ activeFolderId, setActiveFolderId }) => {
   const { folders, books } = useArchive();
   const { overTarget } = useOverTarget();
   const { draggedId } = useDraggedItem();
@@ -266,8 +264,6 @@ const LibraryView = () => {
   const [activeBookId, setActiveBookId] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-
-  const [activeFolderId, setActiveFolderId] = useState(null);
 
   const libraryBooks = useMemo(() => books.filter(b => b.inLibrary), [books]);
   const visibleFolderIds = useMemo(() => {
