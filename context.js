@@ -21,6 +21,7 @@ const ChevronRight = pickIcon('ChevronRight');
 const ArrowUp = pickIcon('ArrowUp');
 const ArrowDown = pickIcon('ArrowDown');
 const BookOpen = pickIcon('BookOpen');
+const List = pickIcon('List');
 const Edit2 = pickIcon('Edit2');
 const Check = pickIcon('Check');
 const X = pickIcon('X');
@@ -265,6 +266,217 @@ const AUTOSCROLL_MAX_SPEED = 14;
 const HIT_TEST_INTERVAL = 80;
 const STABLE_THRESHOLD = 2;
 
+let _isDragActive = false;
+document.addEventListener('touchmove', (e) => {
+  if (_isDragActive) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }
+}, { passive: false, capture: true });
+
+document.addEventListener('touchstart', (e) => {}, { passive: true, capture: true });
+
+const useDraggableItem = (item, containerFolderId, onClick) => {
+  const { startDrag, updateDrag, endDrag, cancelDrag } = useDragApi();
+  const { draggedId } = useDraggedItem();
+  const cardRef = useRef(null);
+  const pressTimer = useRef(null);
+  const startPos = useRef({ x: 0, y: 0 });
+  const startTime = useRef(0);
+  const lastPos = useRef({ x: 0, y: 0 });
+  const movedRef = useRef(false);
+  const draggingRef = useRef(false);
+  const pointerIdRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const autoScrollRAF = useRef(null);
+  const velocityHistory = useRef([]);
+  const momentumRAF = useRef(null);
+
+  const clearPressTimer = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+
+  const stopMomentum = () => {
+    if (momentumRAF.current) { cancelAnimationFrame(momentumRAF.current); momentumRAF.current = null; }
+  };
+
+  const getScrollContainer = () => {
+    if (scrollContainerRef.current) return scrollContainerRef.current;
+    let el = cardRef.current;
+    while (el) {
+      const style = window.getComputedStyle(el);
+      if (style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflow === 'auto' || style.overflow === 'scroll') {
+        scrollContainerRef.current = el;
+        return el;
+      }
+      el = el.parentElement;
+    }
+    return document.documentElement;
+  };
+
+  const EDGE_ZONE = 60;
+  const MAX_SCROLL_SPEED = 8;
+
+  const doAutoScroll = (clientY) => {
+    const sc = getScrollContainer();
+    const rect = sc.getBoundingClientRect();
+    const topDist = clientY - rect.top;
+    const bottomDist = rect.bottom - clientY;
+    let speed = 0;
+    if (topDist < EDGE_ZONE && sc.scrollTop > 0) {
+      speed = -MAX_SCROLL_SPEED * (1 - topDist / EDGE_ZONE);
+    } else if (bottomDist < EDGE_ZONE && sc.scrollTop < sc.scrollHeight - sc.clientHeight) {
+      speed = MAX_SCROLL_SPEED * (1 - bottomDist / EDGE_ZONE);
+    }
+    if (Math.abs(speed) > 0.5) {
+      sc.scrollTop += speed;
+    }
+  };
+
+  const runAutoScroll = (clientY) => {
+    doAutoScroll(clientY);
+    autoScrollRAF.current = requestAnimationFrame(() => runAutoScroll(clientY));
+  };
+
+  const stopAutoScroll = () => {
+    if (autoScrollRAF.current) {
+      cancelAnimationFrame(autoScrollRAF.current);
+      autoScrollRAF.current = null;
+    }
+  };
+
+  const handlePointerMove = (e) => {
+    if (draggingRef.current) {
+      e.preventDefault();
+      updateDrag(e.clientX, e.clientY);
+      stopAutoScroll();
+      runAutoScroll(e.clientY);
+      return;
+    }
+
+    const dx = e.clientX - startPos.current.x;
+    const dy = e.clientY - startPos.current.y;
+    const dist = Math.hypot(dx, dy);
+    const elapsed = Date.now() - startTime.current;
+    const velocity = elapsed > 0 ? dist / elapsed : 0;
+
+    if (!movedRef.current && (dist > 30 || (dist > 15 && velocity > 0.15))) {
+      movedRef.current = true;
+      clearPressTimer();
+    }
+
+    if (movedRef.current) {
+      const deltaY = e.clientY - lastPos.current.y;
+      const sc = getScrollContainer();
+      sc.scrollTop -= deltaY;
+
+      const now = Date.now();
+      velocityHistory.current.push({ y: e.clientY, t: now });
+      while (velocityHistory.current.length > 0 && now - velocityHistory.current[0].t > 80) {
+        velocityHistory.current.shift();
+      }
+    }
+
+    lastPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const stopTracking = () => {
+    _isDragActive = false;
+    window.removeEventListener('pointermove', handlePointerMove);
+    window.removeEventListener('pointerup', handlePointerUp);
+    window.removeEventListener('pointercancel', handlePointerCancel);
+    stopAutoScroll();
+    if (cardRef.current && pointerIdRef.current !== null) {
+      try { cardRef.current.releasePointerCapture(pointerIdRef.current); } catch(e) {}
+    }
+    pointerIdRef.current = null;
+  };
+
+  const handlePointerUp = () => {
+    clearPressTimer();
+    const wasDragging = draggingRef.current;
+    const wasScrolling = movedRef.current;
+    draggingRef.current = false;
+    stopTracking();
+    if (wasDragging) { endDrag(); return; }
+
+    if (wasScrolling) {
+      const history = velocityHistory.current;
+      if (history.length >= 2) {
+        const first = history[0];
+        const last = history[history.length - 1];
+        const dt = last.t - first.t;
+        if (dt > 0) {
+          let vel = -(last.y - first.y) / dt;
+          vel *= 16;
+          const sc = getScrollContainer();
+          const FRICTION = 0.94;
+          const MIN_VEL = 0.3;
+
+          const momentumTick = () => {
+            vel *= FRICTION;
+            if (Math.abs(vel) < MIN_VEL) { momentumRAF.current = null; return; }
+            sc.scrollTop += vel;
+            if (sc.scrollTop <= 0 || sc.scrollTop >= sc.scrollHeight - sc.clientHeight) {
+              momentumRAF.current = null; return;
+            }
+            momentumRAF.current = requestAnimationFrame(momentumTick);
+          };
+
+          stopMomentum();
+          momentumRAF.current = requestAnimationFrame(momentumTick);
+        }
+      }
+      velocityHistory.current = [];
+    }
+  };
+
+  const handlePointerCancel = () => {
+    clearPressTimer();
+    const wasDragging = draggingRef.current;
+    draggingRef.current = false;
+    stopTracking();
+    if (wasDragging) cancelDrag();
+    velocityHistory.current = [];
+  };
+
+  const handlePointerDown = (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    scrollContainerRef.current = null;
+    stopMomentum();
+    velocityHistory.current = [];
+    startPos.current = { x: e.clientX, y: e.clientY };
+    lastPos.current = { x: e.clientX, y: e.clientY };
+    startTime.current = Date.now();
+    movedRef.current = false;
+    draggingRef.current = false;
+    pointerIdRef.current = e.pointerId;
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerCancel);
+
+    if (!containerFolderId) return;
+    const pointerId = e.pointerId;
+    pressTimer.current = setTimeout(() => {
+      if (!movedRef.current && cardRef.current) {
+        draggingRef.current = true;
+        _isDragActive = true;
+        try { cardRef.current.setPointerCapture(pointerId); } catch(err) {}
+        const rect = cardRef.current.getBoundingClientRect();
+        startDrag(item, rect, e.clientX, e.clientY);
+      }
+    }, 300);
+  };
+
+  const handleClick = () => {
+    if (movedRef.current || draggingRef.current) return;
+    if (onClick) onClick(item);
+  };
+
+  const isBeingDragged = draggedId === item.id;
+
+  return { cardRef, handlePointerDown, handleClick, isBeingDragged };
+};
+
 const DragDropProvider = ({ children, onDrop }) => {
   const { books } = useArchive();
   const [draggedId, setDraggedId] = useState(null);
@@ -393,9 +605,9 @@ const DragDropProvider = ({ children, onDrop }) => {
     rafRef.current = requestAnimationFrame(tick);
   };
 
-  const startDrag = (book, rect, x, y) => {
-    draggedIdRef.current = book.id;
-    setDraggedId(book.id);
+  const startDrag = (item, rect, x, y) => {
+    draggedIdRef.current = item.id;
+    setDraggedId(item.id);
     setCardSize({ width: rect.width, height: rect.height });
     offsetRef.current = { x: x - rect.left, y: y - rect.top };
     pointerRef.current = { x, y };
@@ -442,6 +654,9 @@ const DragDropProvider = ({ children, onDrop }) => {
   const cancelDrag = () => finishDrag(false);
 
   const draggedBook = draggedId ? books.find(b => b.id === draggedId) : null;
+  const draggedFolder = !draggedBook && draggedId ? folders.find(f => f.id === draggedId) : null;
+  const draggedTitle = draggedBook ? draggedBook.title : (draggedFolder ? draggedFolder.name : '');
+  const draggedSubtitle = draggedBook ? (draggedBook.publisher || 'Yayınevi Yok') : (draggedFolder ? 'Liste' : '');
 
   const apiValue = useMemo(() => ({ startDrag, updateDrag, endDrag, cancelDrag }), []);
   const itemValue = useMemo(() => ({ draggedId, cardSize }), [draggedId, cardSize]);
@@ -452,7 +667,7 @@ const DragDropProvider = ({ children, onDrop }) => {
       <DraggedItemContext.Provider value={itemValue}>
         <OverTargetContext.Provider value={targetValue}>
           {children}
-          {draggedId && draggedBook && (
+          {(draggedBook || draggedFolder) && (
             <div
               ref={ghostRef}
               className="fixed z-[100] top-0 left-0 pointer-events-none"
@@ -463,15 +678,17 @@ const DragDropProvider = ({ children, onDrop }) => {
                 style={{ transformOrigin: `${offsetRef.current.x}px ${offsetRef.current.y}px` }}
               >
                 <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
-                  {draggedBook.cover ? (
+                  {draggedBook && draggedBook.cover ? (
                     <img src={draggedBook.cover} alt="" className="w-full h-full object-cover" />
+                  ) : draggedFolder ? (
+                    <List size={16} />
                   ) : (
                     <BookOpen size={16} />
                   )}
                 </div>
                 <div className="truncate flex-1">
-                  <h4 className="font-semibold text-zinc-800 text-sm truncate">{draggedBook.title}</h4>
-                  <p className="text-[11px] text-zinc-500 truncate">{draggedBook.publisher || 'Yayınevi Yok'}</p>
+                  <h4 className="font-semibold text-zinc-800 text-sm truncate">{draggedTitle}</h4>
+                  <p className="text-[11px] text-zinc-500 truncate">{draggedSubtitle}</p>
                 </div>
               </div>
             </div>

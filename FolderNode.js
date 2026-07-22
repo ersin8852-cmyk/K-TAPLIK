@@ -12,6 +12,8 @@ const FolderNode = React.memo(({ folder, allFolders, allBooks, onOpenFolder, isL
   const isDropBefore = isTarget && overTarget.placement === 'before';
   const isDropAfter = isTarget && overTarget.placement === 'after';
 
+  const { cardRef, handlePointerDown, handleClick, isBeingDragged } = useDraggableItem(folder, folder.parentId || 'root', () => onOpenFolder(folder.id));
+
   return (
     <div className="mb-1.5 relative">
       {showDelConfirm ? (
@@ -26,12 +28,15 @@ const FolderNode = React.memo(({ folder, allFolders, allBooks, onOpenFolder, isL
         <>
           {isDropBefore && <div className="absolute -top-1 left-4 right-4 h-0.5 bg-zinc-900 rounded-full z-10" />}
           <div
+            ref={cardRef}
             data-item-target={folder.id}
             data-item-type="folder"
             data-item-folder={folder.parentId || 'root'}
-            className={`group flex items-center justify-between p-3.5 rounded-xl transition-all border shadow-sm cursor-pointer ml-2 sm:ml-4 relative
-              ${isDropInside ? 'bg-zinc-900/5 border-zinc-900 border-dashed scale-[1.02]' : 'bg-white border-zinc-200 hover:border-zinc-300 hover:shadow-md'}`}
-            onClick={() => onOpenFolder(folder.id)}
+            className={`group flex items-center justify-between p-3.5 rounded-xl transition-all border shadow-sm cursor-pointer ml-2 sm:ml-4 relative select-none
+              ${isDropInside ? 'bg-zinc-900/5 border-zinc-900 border-dashed scale-[1.02]' : 'bg-white border-zinc-200 hover:border-zinc-300 hover:shadow-md'}
+              ${isBeingDragged ? 'opacity-0' : ''}`}
+            onPointerDown={handlePointerDown}
+            onClick={handleClick}
           >
             {draggedId && (
               <div 
