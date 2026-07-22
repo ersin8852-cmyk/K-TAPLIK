@@ -121,6 +121,7 @@ const ListsView = () => {
             </div>
           )
         ) : (
+          <>
             {currentBooks.length === 0 && currentFolders.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-zinc-400 space-y-3 pb-20">
                 <List size={48} className="opacity-20" />
@@ -132,6 +133,7 @@ const ListsView = () => {
                   <BookList ids={currentBooks.map(b => b.id)} books={books} folderKey={activeFolderId || "root"} onOpen={handleOpenBook} showIndicator={true} />
               </div>
             )}
+          </>
         )}
       </div>
 
