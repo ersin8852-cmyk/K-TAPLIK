@@ -332,12 +332,23 @@ const useDraggableItem = (item, containerFolderId, onClick) => {
     return 0;
   };
 
-  const runAutoScroll = (clientX, clientY) => {
-    const speed = doAutoScroll(clientY);
-    if (speed !== 0) {
-      updateDrag(clientX, clientY);
+  const autoScrollTarget = useRef({ x: 0, y: 0 });
+
+  const runAutoScroll = () => {
+    const { x: clientX, y: clientY } = autoScrollTarget.current;
+    if (draggingRef.current) {
+      const speed = doAutoScroll(clientY);
+      if (speed !== 0) {
+        updateDrag(clientX, clientY);
+      }
     }
-    autoScrollRAF.current = requestAnimationFrame(() => runAutoScroll(clientX, clientY));
+    autoScrollRAF.current = requestAnimationFrame(runAutoScroll);
+  };
+
+  const startAutoScroll = () => {
+    if (!autoScrollRAF.current) {
+      autoScrollRAF.current = requestAnimationFrame(runAutoScroll);
+    }
   };
 
   const stopAutoScroll = () => {
@@ -351,8 +362,7 @@ const useDraggableItem = (item, containerFolderId, onClick) => {
     if (draggingRef.current) {
       e.preventDefault();
       updateDrag(e.clientX, e.clientY);
-      stopAutoScroll();
-      runAutoScroll(e.clientX, e.clientY);
+      autoScrollTarget.current = { x: e.clientX, y: e.clientY };
       return;
     }
 
@@ -453,6 +463,9 @@ const useDraggableItem = (item, containerFolderId, onClick) => {
     movedRef.current = false;
     draggingRef.current = false;
     pointerIdRef.current = e.pointerId;
+
+    autoScrollTarget.current = { x: e.clientX, y: e.clientY };
+    startAutoScroll();
 
     window.addEventListener('pointermove', handlePointerMove, { passive: false });
     window.addEventListener('pointerup', handlePointerUp);
