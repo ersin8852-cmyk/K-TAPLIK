@@ -43,7 +43,7 @@ const FolderNode = React.memo(({ folder, allFolders, allBooks, onOpenFolder, isL
                 data-drop-inside={folder.id}
                 className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-24 z-20 flex items-center justify-center pointer-events-auto"
               >
-                <div className="bg-white/90 shadow-md border border-zinc-100 text-zinc-700 w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-md pointer-events-none transition-transform hover:scale-105">
+                <div className="bg-white shadow-md border border-zinc-200 text-zinc-700 w-16 h-16 rounded-full flex items-center justify-center pointer-events-none transition-transform hover:scale-105">
                   <CornerDownRight size={20} />
                 </div>
               </div>
