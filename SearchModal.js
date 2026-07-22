@@ -1,4 +1,4 @@
-const SearchAddModal = ({ isOpen, onClose, folderId }) => {
+const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
   const { addBook, showToast } = useArchive();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -200,7 +200,12 @@ const SearchAddModal = ({ isOpen, onClose, folderId }) => {
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 z-50">
       <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-lg overflow-hidden flex flex-col h-[85vh] sm:h-[80vh] shadow-2xl animate-in slide-in-from-bottom-10">
         <div className="p-4 border-b flex justify-between items-center bg-zinc-50">
-          <h2 className="text-lg font-semibold text-zinc-800">Yeni Kitap Ekle</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-zinc-800">Yeni Kitap Ekle</h2>
+            <button onClick={() => { onClose(); if(onOpenManualAdd) onOpenManualAdd(); }} className="px-3 py-1.5 bg-zinc-900 text-white text-xs font-semibold rounded-full hover:bg-zinc-800 transition-colors flex items-center gap-1.5 shadow-sm">
+              <Plus size={14} /> Manuel Ekle
+            </button>
+          </div>
           <button onClick={onClose} className="p-2 hover:bg-zinc-200 rounded-full transition-colors"><X size={20} /></button>
         </div>
         <div className="p-4 flex flex-col gap-3 shrink-0">

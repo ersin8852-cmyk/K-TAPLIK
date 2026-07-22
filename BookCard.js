@@ -28,12 +28,14 @@ const BookCard = React.memo(({ book, onOpen, showIndicator = false, folderPath =
         {index != null && (
           <span className="text-zinc-400 font-semibold text-sm w-5 text-right shrink-0">{index}.</span>
         )}
-        <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center">
-          {book.cover ? (
-            <img src={book.cover} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <BookOpen size={16} />
-          )}
+        <div className="bg-zinc-50 rounded-lg text-zinc-400 border border-zinc-100 shrink-0 overflow-hidden w-8 h-11 flex items-center justify-center relative">
+          <BookOpen size={16} className="absolute z-0" />
+          <img 
+            src={book.cover || 'default-cover.png'} 
+            alt="" 
+            className="w-full h-full object-cover absolute inset-0 z-10" 
+            onError={(e) => { e.target.style.display = 'none'; }} 
+          />
         </div>
         <div className="truncate flex-1">
           <h4 className="font-semibold text-zinc-800 text-sm truncate">{book.title}</h4>

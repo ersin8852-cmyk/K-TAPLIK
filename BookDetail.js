@@ -1,5 +1,5 @@
 const BookDetailModal = ({ bookId, isOpen, onClose }) => {
-  const { books, updateBook, deleteBook, folders, showToast, moveItemToPosition } = useArchive();
+  const { books, updateBook, deleteBook, folders, showToast, moveItemToPosition, processImageFile } = useArchive();
   const book = books.find(b => b.id === bookId);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
@@ -34,7 +34,30 @@ const BookDetailModal = ({ bookId, isOpen, onClose }) => {
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 z-40">
       <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh] sm:h-auto animate-in slide-in-from-bottom-10">
         <div className="p-4 border-b flex justify-between items-start bg-zinc-50 relative gap-3">
-          {book.cover && !isEditing && <img src={book.cover} alt="" className="w-14 h-20 object-cover rounded-lg border border-zinc-200 shrink-0 bg-zinc-100" />}
+          {isEditing ? (
+            <div className="w-14 h-20 shrink-0 relative group rounded-lg overflow-hidden border border-zinc-200 bg-zinc-100 cursor-pointer flex items-center justify-center shadow-sm">
+              <BookOpen size={20} className="text-zinc-400 absolute z-0" />
+              <img src={formData.cover || 'default-cover.png'} alt="" className="w-full h-full object-cover absolute inset-0 z-10" onError={(e) => { e.target.style.display = 'none'; }} />
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                 <Camera size={16} className="text-white" />
+              </div>
+              <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer z-30" onChange={async (e) => {
+                 try {
+                   if(e.target.files[0]) {
+                     const b64 = await processImageFile(e.target.files[0]);
+                     setFormData(prev => ({...prev, cover: b64}));
+                   }
+                 } catch (err) {
+                   showToast(err.message, 'error');
+                 }
+              }} />
+            </div>
+          ) : (
+            <div className="w-14 h-20 shrink-0 relative rounded-lg overflow-hidden border border-zinc-200 bg-zinc-100 flex items-center justify-center shadow-sm">
+              <BookOpen size={20} className="text-zinc-400 absolute z-0" />
+              <img src={book.cover || 'default-cover.png'} alt="" className="w-full h-full object-cover absolute inset-0 z-10" onError={(e) => { e.target.style.display = 'none'; }} />
+            </div>
+          )}
           <div className="flex-1 pr-4 min-w-0">
             {isEditing ? <input name="title" value={formData.title} onChange={handleChange} className="w-full font-bold text-lg border-b border-zinc-300 focus:outline-none focus:border-zinc-800 bg-transparent mb-1" /> : <h2 className="text-xl font-bold text-zinc-900 leading-tight mb-1">{book.title}</h2>}
             <p className="text-xs text-zinc-500">ISBN: {book.isbn || 'Belirtilmemiş'}</p>

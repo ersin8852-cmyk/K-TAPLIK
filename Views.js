@@ -50,6 +50,7 @@ const ListsView = ({ activeFolderId, setActiveFolderId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [fabMenuOpen, openFabMenu, closeFabMenu, setFabMenuOpen] = useHistoryModal('fab');
   const [listCreateModalOpen, openListCreateModal, closeListCreateModal] = useHistoryModal('list-create');
+  const [manualAddModalOpen, openManualAddModal, closeManualAddModal] = useHistoryModal('manual-add');
 
   const currentFolders = folders.filter(f => f.parentId === activeFolderId);
   const currentBooks = books.filter(b => b.folderId === activeFolderId);
@@ -224,7 +225,8 @@ const ListsView = ({ activeFolderId, setActiveFolderId }) => {
         </div>
       </div>
 
-      <SearchAddModal isOpen={searchModalOpen} onClose={closeSearchModal} folderId={activeFolderForAdd} />
+      <SearchAddModal isOpen={searchModalOpen} onClose={closeSearchModal} folderId={activeFolderForAdd} onOpenManualAdd={openManualAddModal} />
+      <ManualAddModal isOpen={manualAddModalOpen} onClose={closeManualAddModal} folderId={activeFolderForAdd} />
       <BookDetailModal isOpen={detailModalOpen} onClose={closeDetailModal} bookId={activeBookId} />
       <ListCreateModal isOpen={listCreateModalOpen} onClose={closeListCreateModal} onCreate={addFolder} parentId={activeFolderId} />
       <ListEditModal isOpen={listEditModalOpen} onClose={closeListEditModal} folderId={activeFolderForEdit} />
