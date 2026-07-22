@@ -3,21 +3,60 @@ const AppLayout = () => {
   const [listsFolderId, setListsFolderId] = useState(null);
   const [libraryFolderId, setLibraryFolderId] = useState(null);
 
+  React.useEffect(() => {
+    if (!window.history.state) {
+      window.history.replaceState({ tab: 'lists', listsId: null, libraryId: null }, '');
+    } else {
+      const s = window.history.state;
+      if (s.tab) setActiveTab(s.tab);
+      if (s.listsId !== undefined) setListsFolderId(s.listsId);
+      if (s.libraryId !== undefined) setLibraryFolderId(s.libraryId);
+    }
+
+    const handlePopState = (e) => {
+      if (e.state) {
+        setActiveTab(e.state.tab);
+        setListsFolderId(e.state.listsId);
+        setLibraryFolderId(e.state.libraryId);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const handleTabClick = (tabId) => {
     if (activeTab === tabId) {
-      if (tabId === 'lists') setListsFolderId(null);
-      if (tabId === 'library') setLibraryFolderId(null);
+      if (tabId === 'lists' && listsFolderId !== null) {
+        setListsFolderId(null);
+        window.history.pushState({ tab: tabId, listsId: null, libraryId: libraryFolderId }, '');
+      }
+      if (tabId === 'library' && libraryFolderId !== null) {
+        setLibraryFolderId(null);
+        window.history.pushState({ tab: tabId, listsId: listsFolderId, libraryId: null }, '');
+      }
     } else {
       setActiveTab(tabId);
+      window.history.pushState({ tab: tabId, listsId: listsFolderId, libraryId: libraryFolderId }, '');
     }
+  };
+
+  const changeListsFolder = (newId) => {
+    setListsFolderId(newId);
+    window.history.pushState({ tab: activeTab, listsId: newId, libraryId: libraryFolderId }, '');
+  };
+
+  const changeLibraryFolder = (newId) => {
+    setLibraryFolderId(newId);
+    window.history.pushState({ tab: activeTab, listsId: listsFolderId, libraryId: newId }, '');
   };
 
   return (
     <div className="flex justify-center bg-white sm:bg-zinc-100 min-h-[100dvh]">
       <div className="w-full sm:max-w-md bg-white h-[100dvh] flex flex-col relative sm:shadow-xl overflow-hidden">
         <div className="flex-1 overflow-hidden">
-          {activeTab === 'lists' && <ListsView activeFolderId={listsFolderId} setActiveFolderId={setListsFolderId} />}
-          {activeTab === 'library' && <LibraryView activeFolderId={libraryFolderId} setActiveFolderId={setLibraryFolderId} />}
+          {activeTab === 'lists' && <ListsView activeFolderId={listsFolderId} setActiveFolderId={changeListsFolder} />}
+          {activeTab === 'library' && <LibraryView activeFolderId={libraryFolderId} setActiveFolderId={changeLibraryFolder} />}
           {activeTab === 'stats' && <StatsView />}
         </div>
         <div className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-zinc-200 pb-safe z-30">
