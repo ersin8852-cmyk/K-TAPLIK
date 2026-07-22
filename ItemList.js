@@ -1,4 +1,4 @@
-const ItemList = React.memo(({ ids, items, folders, books, folderKey, onOpenBook, onOpenFolder, showIndicator = false, isLibraryView = false }) => {
+const ItemList = React.memo(({ ids, items, folders, books, folderKey, onOpenBook, onOpenFolder, onEditFolder, showIndicator = false, isLibraryView = false }) => {
   const { draggedId, cardSize } = useDraggedItem();
   const { overTarget } = useOverTarget();
   const nodeRefs = React.useRef(new Map());
@@ -79,7 +79,7 @@ const ItemList = React.memo(({ ids, items, folders, books, folderKey, onOpenBook
         style={draggedId === id ? { height: 0, overflow: 'hidden', opacity: 0, pointerEvents: 'none', margin: 0, padding: 0 } : undefined}
       >
         {item._type === 'folder' ? (
-          <FolderNode folder={item} allFolders={folders} allBooks={books} onOpenFolder={onOpenFolder} isLibraryView={isLibraryView} />
+          <FolderNode folder={item} allFolders={folders} allBooks={books} onOpenFolder={onOpenFolder} onEdit={onEditFolder} isLibraryView={isLibraryView} />
         ) : (
           <BookCard book={item} onOpen={onOpenBook} showIndicator={showIndicator} isLibraryView={isLibraryView} containerFolderId={folderKey} />
         )}

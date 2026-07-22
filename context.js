@@ -36,6 +36,7 @@ const Folder = pickIcon('Folder');
 const Download = pickIcon('Download');
 const Upload = pickIcon('Upload');
 const CornerDownRight = pickIcon('CornerDownRight');
+const Settings = pickIcon('Settings');
 
 const STORAGE_KEY = 'archive_app_data_v3';
 
@@ -96,6 +97,15 @@ const ArchiveProvider = ({ children }) => {
     const order = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
     const newFolder = { id: generateId(), name: trimmed, parentId, order, color };
     setData(prev => ({ ...prev, folders: [...prev.folders, newFolder] }));
+  };
+
+  const updateFolder = (id, name, color) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setData(prev => ({
+      ...prev,
+      folders: prev.folders.map(f => f.id === id ? { ...f, name: trimmed, color } : f)
+    }));
   };
 
   const deleteFolder = (id) => {
@@ -236,7 +246,7 @@ const ArchiveProvider = ({ children }) => {
   return (
     <ArchiveContext.Provider value={{
       books: data.books, folders: data.folders,
-      addFolder, deleteFolder, reorderFolder,
+      addFolder, updateFolder, deleteFolder, reorderFolder,
       addBook, updateBook, deleteBook, moveItemToPosition,
       importData,
       showToast
