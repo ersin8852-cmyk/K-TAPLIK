@@ -91,14 +91,14 @@ const ListsView = () => {
         ) : (
           <div className="flex w-full justify-between items-start">
             <div className="flex flex-col flex-1 mr-2">
-              <button onClick={() => setActiveFolderId(null)} className={`text-left flex items-center gap-1.5 transition-all w-full px-2 py-1 rounded-lg border ${(!activeFolderId) ? 'text-zinc-900 font-bold bg-zinc-50 border-transparent' : 'text-zinc-600 font-medium hover:bg-zinc-50 hover:text-zinc-900 border-transparent'} ${(draggedId && overTarget && overTarget.type === 'folder' && overTarget.id === 'root') ? 'ring-2 ring-zinc-900 border-dashed bg-zinc-100' : ''}`} data-folder-target="root">
+              <button onClick={() => setActiveFolderId(null)} className={`text-left flex items-center gap-1.5 transition-all w-64 max-w-[90%] px-2 py-1 rounded-lg border ${(!activeFolderId) ? 'text-zinc-900 font-bold bg-zinc-50 border-transparent' : 'text-zinc-600 font-medium hover:bg-zinc-50 hover:text-zinc-900 border-transparent'} ${(draggedId && overTarget && overTarget.type === 'folder' && overTarget.id === 'root') ? 'ring-2 ring-zinc-900 border-dashed bg-zinc-100' : ''}`} data-folder-target="root">
                 {!activeFolderId && <Library size={18} className="mr-1" />}
                 Listelerim
               </button>
               {breadcrumbs.map((bc, idx) => (
-                <div key={bc.id} className="flex items-center mt-1 w-full" style={{ marginLeft: `${(idx + 1) * 16}px` }}>
+                <div key={bc.id} className="flex items-center mt-1" style={{ marginLeft: `${(idx + 1) * 16}px` }}>
                   <CornerDownRight size={14} className="text-zinc-400 shrink-0 mr-1.5" />
-                  <button onClick={() => setActiveFolderId(bc.id)} className={`text-left transition-all w-full px-2 py-1 rounded-lg border ${(activeFolderId === bc.id) ? 'text-zinc-900 font-bold bg-zinc-50 border-transparent' : 'text-zinc-600 font-medium hover:bg-zinc-50 hover:text-zinc-900 border-transparent'} ${(draggedId && overTarget && overTarget.type === 'folder' && overTarget.id === bc.id) ? 'ring-2 ring-zinc-900 border-dashed bg-zinc-100' : ''}`} data-folder-target={bc.id}>
+                  <button onClick={() => setActiveFolderId(bc.id)} className={`text-left transition-all w-56 max-w-[85%] px-2 py-1 rounded-lg border ${(activeFolderId === bc.id) ? 'text-zinc-900 font-bold bg-zinc-50 border-transparent' : 'text-zinc-600 font-medium hover:bg-zinc-50 hover:text-zinc-900 border-transparent'} ${(draggedId && overTarget && overTarget.type === 'folder' && overTarget.id === bc.id) ? 'ring-2 ring-zinc-900 border-dashed bg-zinc-100' : ''}`} data-folder-target={bc.id}>
                     {bc.name}
                   </button>
                 </div>
@@ -260,14 +260,14 @@ const LibraryView = () => {
         ) : (
           <div className="flex w-full justify-between items-start">
             <div className="flex flex-col flex-1 mr-2">
-              <button onClick={() => setActiveFolderId(null)} className={`text-left flex items-center gap-1.5 transition-all w-full px-2 py-1 rounded-lg border ${(!activeFolderId) ? 'text-zinc-900 font-bold bg-zinc-50 border-transparent' : 'text-zinc-600 font-medium hover:bg-zinc-50 hover:text-zinc-900 border-transparent'} ${(draggedId && overTarget && overTarget.type === 'folder' && overTarget.id === 'root') ? 'ring-2 ring-zinc-900 border-dashed bg-zinc-100' : ''}`} data-folder-target="root">
+              <button onClick={() => setActiveFolderId(null)} className={`text-left flex items-center gap-1.5 transition-all w-64 max-w-[90%] px-2 py-1 rounded-lg border ${(!activeFolderId) ? 'text-zinc-900 font-bold bg-zinc-50 border-transparent' : 'text-zinc-600 font-medium hover:bg-zinc-50 hover:text-zinc-900 border-transparent'} ${(draggedId && overTarget && overTarget.type === 'folder' && overTarget.id === 'root') ? 'ring-2 ring-zinc-900 border-dashed bg-zinc-100' : ''}`} data-folder-target="root">
                 {!activeFolderId && <Library size={18} className="mr-1" />}
                 Kütüphanem
               </button>
               {breadcrumbs.map((bc, idx) => (
-                <div key={bc.id} className="flex items-center mt-1 w-full" style={{ marginLeft: `${(idx + 1) * 16}px` }}>
+                <div key={bc.id} className="flex items-center mt-1" style={{ marginLeft: `${(idx + 1) * 16}px` }}>
                   <CornerDownRight size={14} className="text-zinc-400 shrink-0 mr-1.5" />
-                  <button onClick={() => setActiveFolderId(bc.id)} className={`text-left transition-all w-full px-2 py-1 rounded-lg border ${(activeFolderId === bc.id) ? 'text-zinc-900 font-bold bg-zinc-50 border-transparent' : 'text-zinc-600 font-medium hover:bg-zinc-50 hover:text-zinc-900 border-transparent'} ${(draggedId && overTarget && overTarget.type === 'folder' && overTarget.id === bc.id) ? 'ring-2 ring-zinc-900 border-dashed bg-zinc-100' : ''}`} data-folder-target={bc.id}>
+                  <button onClick={() => setActiveFolderId(bc.id)} className={`text-left transition-all w-56 max-w-[85%] px-2 py-1 rounded-lg border ${(activeFolderId === bc.id) ? 'text-zinc-900 font-bold bg-zinc-50 border-transparent' : 'text-zinc-600 font-medium hover:bg-zinc-50 hover:text-zinc-900 border-transparent'} ${(draggedId && overTarget && overTarget.type === 'folder' && overTarget.id === bc.id) ? 'ring-2 ring-zinc-900 border-dashed bg-zinc-100' : ''}`} data-folder-target={bc.id}>
                     {bc.name}
                   </button>
                 </div>
