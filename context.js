@@ -529,6 +529,7 @@ const DragDropProvider = ({ children, onDrop }) => {
 
     const dropInsideEl = elements.find(el => el.hasAttribute('data-drop-inside') && el.dataset.dropInside !== draggedIdRef.current);
     const itemEl = elements.find(el => el.hasAttribute('data-item-target'));
+    const breadcrumbEl = elements.find(el => el.hasAttribute('data-breadcrumb-target'));
     const rootEl = elements.find(el => el.hasAttribute('data-folder-target'));
 
     let next = null;
@@ -558,8 +559,10 @@ const DragDropProvider = ({ children, onDrop }) => {
           placement 
         };
       }
+    } else if (breadcrumbEl) {
+      next = { type: 'folder', id: breadcrumbEl.dataset.breadcrumbTarget, placement: 'inside', source: 'breadcrumb' };
     } else if (rootEl) {
-      next = { type: 'folder', id: 'root', placement: 'inside' };
+      next = { type: 'folder', id: rootEl.dataset.folderTarget, placement: 'inside' };
     }
 
     if (!next) {
