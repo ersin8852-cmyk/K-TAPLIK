@@ -202,7 +202,7 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
         <div className="p-4 border-b flex justify-between items-center bg-zinc-50">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold text-zinc-800">Yeni Kitap Ekle</h2>
-            <button onClick={() => { onClose(); if(onOpenManualAdd) onOpenManualAdd(); }} className="px-3 py-1.5 bg-zinc-900 text-white text-xs font-semibold rounded-full hover:bg-zinc-800 transition-colors flex items-center gap-1.5 shadow-sm">
+            <button onClick={() => { if(onOpenManualAdd) onOpenManualAdd(); }} className="px-3 py-1.5 bg-zinc-900 text-white text-xs font-semibold rounded-full hover:bg-zinc-800 transition-colors flex items-center gap-1.5 shadow-sm">
               <Plus size={14} /> Manuel Ekle
             </button>
           </div>

@@ -40,7 +40,7 @@ const ListsView = ({ activeFolderId, setActiveFolderId }) => {
   const { folders, books, addFolder } = useArchive();
   const { overTarget } = useOverTarget();
   const { draggedId } = useDraggedItem();
-  const [searchModalOpen, openSearchModal, closeSearchModal] = useHistoryModal('search');
+  const [searchModalOpen, openSearchModal, closeSearchModal, setSearchModalOpen] = useHistoryModal('search');
   const [activeFolderForAdd, setActiveFolderForAdd] = useState(null);
   const [detailModalOpen, openDetailModal, closeDetailModal] = useHistoryModal('detail-lists');
   const [activeBookId, setActiveBookId] = useState(null);
@@ -225,7 +225,7 @@ const ListsView = ({ activeFolderId, setActiveFolderId }) => {
         </div>
       </div>
 
-      <SearchAddModal isOpen={searchModalOpen} onClose={closeSearchModal} folderId={activeFolderForAdd} onOpenManualAdd={openManualAddModal} />
+      <SearchAddModal isOpen={searchModalOpen} onClose={closeSearchModal} folderId={activeFolderForAdd} onOpenManualAdd={() => { setSearchModalOpen(false); openManualAddModal(); }} />
       <ManualAddModal isOpen={manualAddModalOpen} onClose={closeManualAddModal} folderId={activeFolderForAdd} />
       <BookDetailModal isOpen={detailModalOpen} onClose={closeDetailModal} bookId={activeBookId} />
       <ListCreateModal isOpen={listCreateModalOpen} onClose={closeListCreateModal} onCreate={addFolder} parentId={activeFolderId} />
