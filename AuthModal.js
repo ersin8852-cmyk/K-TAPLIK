@@ -65,7 +65,7 @@ const AuthModal = ({ isVisible }) => {
       }
     } catch (err) {
       console.error(err);
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setError('Şifre hatalı veya kullanıcı bulunamadı.');
       } else if (err.code === 'auth/email-already-in-use') {
         setError('Bu e-posta adresi zaten kullanımda.');
