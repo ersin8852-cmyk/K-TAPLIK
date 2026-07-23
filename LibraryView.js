@@ -95,11 +95,9 @@ const LibraryView = ({ activeFolderId, setActiveFolderId, onOpenProfile }) => {
           <div className="flex-1 flex justify-center items-center">
             {/* İleride buraya Logo gelecek */}
           </div>
-          {libraryBooks.length > 0 && (
-            <button onClick={() => { setIsSearching(!isSearching); if(isSearching) setSearchTerm(''); }} className={`p-2 -mr-2 rounded-full transition-colors ${isSearching ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-600 hover:bg-zinc-100'}`}>
-              {isSearching ? <X size={22} /> : <Search size={22} />}
-            </button>
-          )}
+          <button onClick={() => { setIsSearching(!isSearching); if(isSearching) setSearchTerm(''); }} className={`p-2 -mr-2 rounded-full transition-colors ${isSearching ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-600 hover:bg-zinc-100'}`}>
+            {isSearching ? <X size={22} /> : <Search size={22} />}
+          </button>
         </div>
 
         <div className="p-4 py-3 min-h-[60px] flex items-center border-b border-zinc-100">
