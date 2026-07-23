@@ -81,6 +81,10 @@ const ItemList = React.memo(({ ids, items, folders, books, folderKey, onOpenBook
       <div 
         key={id} 
         ref={el => { if (el) nodeRefs.current.set(id, el); else nodeRefs.current.delete(id); }}
+        data-item-target={id}
+        data-item-type={item._type}
+        data-item-folder={folderKey}
+        className="py-[3px]"
         style={draggedId === id ? { height: 0, overflow: 'hidden', opacity: 0, pointerEvents: 'none', margin: 0, padding: 0 } : undefined}
       >
         {item._type === 'folder' ? (
