@@ -76,7 +76,7 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
       try {
         await scanner.start(
           { facingMode: "environment" }, 
-          { fps: 15, qrbox: { width: 300, height: 250 } },
+          { fps: 15 },
           onScanSuccess,
           () => {}
         );
@@ -100,7 +100,6 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
           { facingMode: "environment" },
           { 
             fps: 15, 
-            qrbox: { width: 300, height: 250 },
             videoConstraints: { 
               facingMode: "environment",
               width: { ideal: 1920 }, 
