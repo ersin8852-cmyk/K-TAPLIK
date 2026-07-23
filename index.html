@@ -208,14 +208,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!window.Babel) throw new Error('Babel yüklendi ama window.Babel oluşmadı');
 
                 const files = [
+                    './api.js',
+                    './hooks.js',
                     './context.js',
+                    './dndContext.js',
                     './BookCard.js',
                     './FolderNode.js',
                     './ItemList.js',
+                    './FolderModals.js',
                     './SearchModal.js',
                     './ManualAddModal.js',
                     './BookDetail.js',
-                    './Views.js',
+                    './ListsView.js',
+                    './LibraryView.js',
+                    './StatsView.js',
                     './main.js'
                 ];
 
