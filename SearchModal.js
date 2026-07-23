@@ -101,7 +101,11 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
           { 
             fps: 15, 
             qrbox: { width: 300, height: 250 },
-            videoConstraints: { width: { ideal: 1920 }, height: { ideal: 1080 } }
+            videoConstraints: { 
+              facingMode: "environment",
+              width: { ideal: 1920 }, 
+              height: { ideal: 1080 } 
+            }
           },
           onScanSuccess,
           () => {}
