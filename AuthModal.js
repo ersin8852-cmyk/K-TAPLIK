@@ -65,14 +65,24 @@ const AuthModal = ({ isVisible }) => {
       }
     } catch (err) {
       console.error(err);
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential' || (err.message && err.message.includes('INVALID_LOGIN_CREDENTIALS'))) {
         setError('Şifre hatalı veya kullanıcı bulunamadı.');
       } else if (err.code === 'auth/email-already-in-use') {
         setError('Bu e-posta adresi zaten kullanımda.');
       } else if (err.code === 'auth/weak-password') {
         setError('Şifre çok zayıf (en az 6 karakter olmalı).');
       } else {
-        setError('Bir hata oluştu: ' + err.message);
+        // Try to parse JSON message if it is a JSON string
+        try {
+          const parsed = JSON.parse(err.message);
+          if (parsed.error && parsed.error.message) {
+            setError('Bir hata oluştu: ' + parsed.error.message);
+          } else {
+            setError('Bir hata oluştu: ' + err.message);
+          }
+        } catch {
+          setError('Bir hata oluştu: ' + err.message);
+        }
       }
     } finally {
       setLoading(false);
