@@ -10,7 +10,7 @@ const FolderNode = React.memo(({ folder, allFolders, allBooks, onOpenFolder, onE
   const isDropBefore = isTarget && overTarget.placement === 'before';
   const isDropAfter = isTarget && overTarget.placement === 'after';
 
-  const { cardRef, handlePointerDown, handleClick, isBeingDragged } = useDraggableItem(folder, folder.parentId || 'root', () => onOpenFolder(folder.id));
+  const { cardRef, handlePointerDown, handleClick, isBeingDragged } = useDraggableItem(folder, folder.parentId || 'root', () => onOpenFolder(folder.id), 'folder');
 
   return (
     <div className="relative">

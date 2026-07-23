@@ -11,7 +11,7 @@ const BookCard = React.memo(({ book, onOpen, showIndicator = false, folderPath =
     }
   };
 
-  const { cardRef, handlePointerDown, handleClick, isBeingDragged } = useDraggableItem(book, containerFolderId, handleNavigateOrOpen);
+  const { cardRef, handlePointerDown, handleClick, isBeingDragged } = useDraggableItem(book, containerFolderId, handleNavigateOrOpen, 'book');
 
   return (
     <div

@@ -106,9 +106,10 @@ const ListsView = ({ activeFolderId, setActiveFolderId, onOpenProfile }) => {
           ) : (
             <div className="flex flex-col w-full">
               <div className="flex w-full justify-between items-start">
-                <button onClick={() => setActiveFolderId(null)} className={`text-left flex items-center gap-1.5 transition-all w-full px-2 py-1 rounded-lg border ${(!activeFolderId) ? 'text-zinc-900 font-bold bg-zinc-50 border-transparent' : 'text-zinc-600 font-medium hover:bg-zinc-50 hover:text-zinc-900 border-transparent'} ${(draggedId && overTarget && overTarget.type === 'folder' && overTarget.id === 'root' && overTarget.source === 'breadcrumb') ? 'ring-2 ring-zinc-900 border-dashed bg-zinc-100' : ''}`} data-breadcrumb-target="root">
+                <button onClick={() => setActiveFolderId(null)} className={`text-left flex items-center gap-1.5 transition-all w-full px-2 py-1 rounded-lg border ${(!activeFolderId) ? 'text-zinc-900 font-bold bg-zinc-50 border-transparent cursor-default' : 'text-zinc-600 font-medium hover:bg-zinc-50 hover:text-zinc-900 border-transparent'} ${(draggedId && overTarget && overTarget.type === 'folder' && overTarget.id === 'root' && overTarget.source === 'breadcrumb') ? 'ring-2 ring-zinc-900 border-dashed bg-zinc-100' : ''}`} data-breadcrumb-target={activeFolderId ? "root" : undefined}>
                   {!activeFolderId && <Library size={18} className="mr-1" />}
-                  Listelerim
+                  {activeFolderId && <ArrowLeft size={16} className="mr-1" />}
+                  <span className="truncate flex-1 leading-tight">{!activeFolderId ? 'Listelerim' : 'Geri'}</span>
                 </button>
               </div>
               {breadcrumbs.map((bc, idx) => (

@@ -8,8 +8,8 @@ const useOverTarget = () => useContext(OverTargetContext);
 
 const AUTOSCROLL_EDGE = 70;
 const AUTOSCROLL_MAX_SPEED = 14;
-const HIT_TEST_INTERVAL = 80;
-const STABLE_THRESHOLD = 2;
+const HIT_TEST_INTERVAL = 30;
+const STABLE_THRESHOLD = 1;
 
 let _isDragActive = false;
 document.addEventListener('touchmove', (e) => {
@@ -21,7 +21,7 @@ document.addEventListener('touchmove', (e) => {
 
 document.addEventListener('touchstart', (e) => {}, { passive: true, capture: true });
 
-const useDraggableItem = (item, containerFolderId, onClick) => {
+const useDraggableItem = (item, containerFolderId, onClick, itemType) => {
   const { startDrag, updateDrag, endDrag, cancelDrag } = useDragApi();
   const { draggedId } = useDraggedItem();
   const cardRef = useRef(null);
@@ -225,7 +225,7 @@ const useDraggableItem = (item, containerFolderId, onClick) => {
         _isDragActive = true;
         try { cardRef.current.setPointerCapture(pointerId); } catch(err) {}
         const rect = cardRef.current.getBoundingClientRect();
-        startDrag(item, rect, e.clientX, e.clientY);
+        startDrag(item, rect, e.clientX, e.clientY, itemType);
       }
     }, 300);
   };
@@ -251,6 +251,7 @@ const DragDropProvider = ({ children, onDrop }) => {
   const offsetRef = useRef({ x: 0, y: 0 });
   const rafRef = useRef(null);
   const draggedIdRef = useRef(null);
+  const draggedTypeRef = useRef(null);
   const overTargetRef = useRef(null);
   const lastHitTestTime = useRef(0);
   const pendingTarget = useRef(null);
@@ -395,8 +396,9 @@ const DragDropProvider = ({ children, onDrop }) => {
     rafRef.current = requestAnimationFrame(tick);
   };
 
-  const startDrag = (item, rect, x, y) => {
+  const startDrag = (item, rect, x, y, itemType) => {
     draggedIdRef.current = item.id;
+    draggedTypeRef.current = itemType;
     setDraggedId(item.id);
     setCardSize({ width: rect.width, height: rect.height });
     offsetRef.current = { x: x - rect.left, y: y - rect.top };
@@ -419,9 +421,7 @@ const DragDropProvider = ({ children, onDrop }) => {
     rafRef.current = null;
     if (commit && draggedIdRef.current && overTargetRef.current) {
       const t = overTargetRef.current;
-      
-      const isFolder = books.find(b => b.id === draggedIdRef.current) === undefined;
-      const itemType = isFolder ? 'folder' : 'book';
+      const itemType = draggedTypeRef.current;
 
       if (t.placement === 'inside') {
         const targetFolderId = t.id === 'root' ? null : t.id;
