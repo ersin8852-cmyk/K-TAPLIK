@@ -1,3 +1,5 @@
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
   const { addBook, showToast } = useArchive();
   const [query, setQuery] = useState('');
@@ -24,7 +26,6 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
     if (!showCamera) return;
 
     let isComponentMounted = true;
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     
     let html5Scanner = null;
     let zxingScanner = null;
@@ -48,7 +49,7 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
         isScanning: true
       };
 
-      zxingScanner.decodeFromVideoDevice(null, 'reader', (result, err) => {
+      zxingScanner.decodeFromVideoDevice(null, 'zxing-reader', (result, err) => {
         if (!isComponentMounted) return;
         if (result) {
           onScanSuccess(result.getText());
@@ -206,8 +207,12 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
         </div>
         {showCamera && (
           <div className="px-4 pb-2 shrink-0">
-            <div className="bg-black rounded-xl overflow-hidden shadow-inner relative">
-              <div id="reader"></div>
+            <div className="bg-black rounded-xl overflow-hidden shadow-inner relative flex justify-center">
+              {!isIOS ? (
+                <div id="reader" className="w-full"></div>
+              ) : (
+                <video id="zxing-reader" className="w-full" autoPlay playsInline muted></video>
+              )}
               <p className="absolute bottom-2 w-full text-center text-white text-xs z-10 bg-black/50 py-1">Kitabın barkodunu okutun</p>
             </div>
           </div>
