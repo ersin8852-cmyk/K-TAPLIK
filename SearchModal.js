@@ -24,120 +24,136 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
     if (!showCamera) return;
 
     let isComponentMounted = true;
-    const scanner = new window.Html5Qrcode("reader");
-    scannerRef.current = scanner;
-
-    const safelyApplyConstraints = async (track, constraints) => {
-      try {
-        const current = track.getConstraints();
-        await track.applyConstraints({ ...current, ...constraints });
-        return true;
-      } catch (e) {
-        try {
-          const current = track.getConstraints();
-          await track.applyConstraints({ ...current, advanced: [constraints] });
-          return true;
-        } catch (e2) {
-          console.warn("Constraint uygulanamadı:", constraints);
-          return false;
-        }
-      }
-    };
-
-    const optimizeOpenedCamera = async (track) => {
-      if (!track || !isComponentMounted) return;
-      try {
-        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-
-        let newConstraints = {};
-        
-        if (capabilities.focusDistance) {
-          newConstraints.focusDistance = { ideal: capabilities.focusDistance.min || 0 };
-        } else if (capabilities.focusMode?.includes("macro")) {
-          newConstraints.focusMode = "macro";
-        } else if (capabilities.focusMode?.includes("continuous")) {
-          newConstraints.focusMode = "continuous";
-        }
-
-        if (capabilities.exposureMode?.includes("continuous")) newConstraints.exposureMode = "continuous";
-        if (capabilities.whiteBalanceMode?.includes("continuous")) newConstraints.whiteBalanceMode = "continuous";
-
-        if (capabilities.zoom) {
-          const maxZoom = capabilities.zoom.max || 2;
-          newConstraints.zoom = Math.min(2, maxZoom);
-        }
-
-        if (Object.keys(newConstraints).length > 0) {
-          await safelyApplyConstraints(track, newConstraints);
-        }
-      } catch (err) {
-        console.warn("Optimizasyon başarısız, orijinal ayarlarla devam ediliyor.", err);
-      }
-    };
-
-    const fallbackCameraStrategy = async () => {
-      if (!isComponentMounted) return;
-      console.warn("Fallback stratejisi devrede...");
-      try {
-        await scanner.start(
-          { facingMode: "environment" }, 
-          { fps: 15 },
-          onScanSuccess,
-          () => {}
-        );
-      } catch (err) {
-        setShowCamera(false);
-        showToast('Kamera hiçbir şekilde başlatılamadı.', 'error');
-      }
-    };
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    let html5Scanner = null;
+    let zxingScanner = null;
 
     const onScanSuccess = (decodedText) => {
       if (!isComponentMounted) return;
       setQuery(decodedText); 
       setShowCamera(false);
-      scanner.stop().catch(() => {});
+      
+      if (html5Scanner && html5Scanner.isScanning) html5Scanner.stop().catch(() => {});
+      if (zxingScanner) zxingScanner.reset();
+      
       performSearch(decodedText);
     };
 
-    const createCameraStream = async () => {
-      try {
-        await scanner.start(
-          {
-            facingMode: "environment"
-          },
-          {
-            fps: 10,
-            qrbox: {
-              width: 300,
-              height: 180
-            },
-            videoConstraints: {
-              facingMode: "environment",
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            }
-          },
-          onScanSuccess,
-          () => {}
-        );
-        
-        if (!isComponentMounted) return;
-        const videoEl = document.querySelector("#reader video");
-        if (videoEl && videoEl.srcObject) {
-          const track = videoEl.srcObject.getVideoTracks()[0];
-          if (track) await optimizeOpenedCamera(track);
-        }
-      } catch (err) {
-        await fallbackCameraStrategy();
-      }
-    };
+    if (isIOS && window.ZXing) {
+      console.log("iOS tespit edildi, ZXing başlatılıyor...");
+      zxingScanner = new window.ZXing.BrowserMultiFormatReader();
+      scannerRef.current = {
+        stop: async () => zxingScanner.reset(),
+        isScanning: true
+      };
 
-    createCameraStream();
+      zxingScanner.decodeFromVideoDevice(null, 'reader', (result, err) => {
+        if (!isComponentMounted) return;
+        if (result) {
+          onScanSuccess(result.getText());
+        }
+      }).catch(err => {
+        console.warn("ZXing başlatılamadı:", err);
+        if (isComponentMounted) {
+          setShowCamera(false);
+          showToast('Kamera başlatılamadı.', 'error');
+        }
+      });
+    } else {
+      console.log("Android/Diğer tespit edildi, Html5Qrcode başlatılıyor...");
+      html5Scanner = new window.Html5Qrcode("reader");
+      scannerRef.current = html5Scanner;
+
+      const safelyApplyConstraints = async (track, constraints) => {
+        try {
+          const current = track.getConstraints();
+          await track.applyConstraints({ ...current, ...constraints });
+          return true;
+        } catch (e) {
+          try {
+            const current = track.getConstraints();
+            await track.applyConstraints({ ...current, advanced: [constraints] });
+            return true;
+          } catch (e2) {
+            return false;
+          }
+        }
+      };
+
+      const optimizeOpenedCamera = async (track) => {
+        if (!track || !isComponentMounted) return;
+        try {
+          const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+          let newConstraints = {};
+          
+          if (capabilities.focusDistance) newConstraints.focusDistance = { ideal: capabilities.focusDistance.min || 0 };
+          else if (capabilities.focusMode?.includes("macro")) newConstraints.focusMode = "macro";
+          else if (capabilities.focusMode?.includes("continuous")) newConstraints.focusMode = "continuous";
+
+          if (capabilities.exposureMode?.includes("continuous")) newConstraints.exposureMode = "continuous";
+          if (capabilities.whiteBalanceMode?.includes("continuous")) newConstraints.whiteBalanceMode = "continuous";
+
+          if (capabilities.zoom) {
+            const maxZoom = capabilities.zoom.max || 2;
+            newConstraints.zoom = Math.min(2, maxZoom);
+          }
+
+          if (Object.keys(newConstraints).length > 0) {
+            await safelyApplyConstraints(track, newConstraints);
+          }
+        } catch (err) {}
+      };
+
+      const fallbackCameraStrategy = async () => {
+        if (!isComponentMounted) return;
+        try {
+          await html5Scanner.start(
+            { facingMode: "environment" }, 
+            { fps: 15 },
+            onScanSuccess,
+            () => {}
+          );
+        } catch (err) {
+          setShowCamera(false);
+          showToast('Kamera hiçbir şekilde başlatılamadı.', 'error');
+        }
+      };
+
+      const createCameraStream = async () => {
+        try {
+          await html5Scanner.start(
+            { facingMode: "environment" },
+            {
+              fps: 10,
+              qrbox: { width: 300, height: 180 },
+              videoConstraints: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+            },
+            onScanSuccess,
+            () => {}
+          );
+          
+          if (!isComponentMounted) return;
+          const videoEl = document.querySelector("#reader video");
+          if (videoEl && videoEl.srcObject) {
+            const track = videoEl.srcObject.getVideoTracks()[0];
+            if (track) await optimizeOpenedCamera(track);
+          }
+        } catch (err) {
+          await fallbackCameraStrategy();
+        }
+      };
+
+      createCameraStream();
+    }
 
     return () => {
       isComponentMounted = false;
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().catch(() => {});
+      if (html5Scanner && html5Scanner.isScanning) {
+        html5Scanner.stop().catch(() => {});
+      }
+      if (zxingScanner) {
+        zxingScanner.reset();
       }
     };
   }, [showCamera]);

@@ -204,6 +204,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 await loadScript('https://unpkg.com/html5-qrcode');
                 if (!window.Html5Qrcode) throw new Error('html5-qrcode yüklendi ama window.Html5Qrcode oluşmadı');
 
+                await loadScript('https://unpkg.com/@zxing/library@0.21.3');
+                if (!window.ZXing) throw new Error('ZXing yüklendi ama window.ZXing oluşmadı');
+
                 await loadScript('https://unpkg.com/@babel/standalone/babel.min.js');
                 if (!window.Babel) throw new Error('Babel yüklendi ama window.Babel oluşmadı');
 
