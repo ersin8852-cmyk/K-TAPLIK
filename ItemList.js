@@ -12,7 +12,13 @@ const ItemList = React.memo(({ ids, items, folders, books, folderKey, onOpenBook
   if (draggedId && overTarget) {
     if (overTarget.folderId === folderKey || (overTarget.type === 'folder' && overTarget.id === folderKey && overTarget.placement !== 'inside')) {
       const idx = visibleIds.indexOf(overTarget.id);
-      if (idx !== -1) previewIndex = overTarget.placement === 'after' ? idx + 1 : idx;
+      if (idx !== -1) {
+        if (overTarget.placement === 'inside') {
+          previewIndex = null;
+        } else {
+          previewIndex = overTarget.placement === 'after' ? idx + 1 : idx;
+        }
+      }
     } else if (overTarget.type === 'folder' && overTarget.id === folderKey && overTarget.placement === 'inside') {
       // Klasörün geneline (veya sayfanın altındaki boşluğa) sürükleniyorsa boşluğu en sona ekle
       previewIndex = visibleIds.length;
@@ -72,7 +78,10 @@ const ItemList = React.memo(({ ids, items, folders, books, folderKey, onOpenBook
             position: 'relative',
             zIndex: 50
           }}
-        />
+        >
+          {/* Expanded hit area to prevent mouse jittering causing unmounts */}
+          <div data-drop-gap="true" style={{ position: 'absolute', top: -15, bottom: -15, left: 0, right: 0, background: 'transparent' }} />
+        </div>
       );
     }
     const item = items.find(i => i.id === id);
