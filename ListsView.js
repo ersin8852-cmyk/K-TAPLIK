@@ -155,8 +155,7 @@ const ListsView = ({ activeFolderId, setActiveFolderId }) => {
           </>
         )}
       </div>
-
-      <div className="absolute bottom-24 right-6 z-50">
+      <div className="absolute right-6 z-50" style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
         {fabMenuOpen && (
            <div className="fixed inset-0 z-40 bg-white/60 backdrop-blur-sm" onClick={closeFabMenu} />
         )}
