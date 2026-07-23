@@ -75,7 +75,7 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
       console.warn("Fallback stratejisi devrede...");
       try {
         await scanner.start(
-          { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }, 
+          { facingMode: "environment" }, 
           { fps: 15, qrbox: { width: 300, height: 250 } },
           onScanSuccess,
           () => {}
@@ -97,8 +97,12 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
     const createCameraStream = async () => {
       try {
         await scanner.start(
-          { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
-          { fps: 15, qrbox: { width: 300, height: 250 } },
+          { facingMode: "environment" },
+          { 
+            fps: 15, 
+            qrbox: { width: 300, height: 250 },
+            videoConstraints: { width: { ideal: 1920 }, height: { ideal: 1080 } }
+          },
           onScanSuccess,
           () => {}
         );
