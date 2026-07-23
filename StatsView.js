@@ -77,10 +77,22 @@ const StatsView = () => {
     return { list: listS, lib: libS, read: { rCount: read.length, rPages, uCount: unread.length, uPages } };
   }, [books]);
 
+  const handleLogout = async () => {
+    try {
+      await window.firebaseAuth.signOut();
+    } catch (err) {
+      console.error(err);
+      showToast('Çıkış yapılamadı!', 'error');
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-zinc-50">
-      <div className="p-4 pt-6 pb-3 sticky top-0 bg-zinc-50/90 backdrop-blur-md z-10 border-b border-zinc-200">
+      <div className="p-4 pt-6 pb-3 sticky top-0 bg-zinc-50/90 backdrop-blur-md z-10 border-b border-zinc-200 flex justify-between items-center">
         <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Verilerim</h1>
+        <button onClick={handleLogout} className="text-sm font-medium text-red-600 hover:bg-red-50 px-3 py-1 rounded-full transition-colors flex items-center gap-1">
+          <LogOut size={16} /> Çıkış Yap
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-6">
         <section>

@@ -207,14 +207,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 await loadScript('https://unpkg.com/@zxing/library@0.21.3');
                 if (!window.ZXing) throw new Error('ZXing yüklendi ama window.ZXing oluşmadı');
 
+                await loadScript('https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js');
+                if (!window.firebase) throw new Error('Firebase yüklendi ama window.firebase oluşmadı');
+                
+                await loadScript('https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js');
+                await loadScript('https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js');
+
                 await loadScript('https://unpkg.com/@babel/standalone/babel.min.js');
                 if (!window.Babel) throw new Error('Babel yüklendi ama window.Babel oluşmadı');
 
                 const files = [
+                    './firebase.js',
                     './api.js',
                     './hooks.js',
                     './context.js',
                     './dndContext.js',
+                    './AuthModal.js',
                     './BookCard.js',
                     './FolderNode.js',
                     './ItemList.js',

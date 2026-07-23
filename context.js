@@ -37,6 +37,7 @@ const Download = pickIcon('Download');
 const Upload = pickIcon('Upload');
 const CornerDownRight = pickIcon('CornerDownRight');
 const Settings = pickIcon('Settings');
+const LogOut = pickIcon('LogOut');
 
 const STORAGE_KEY = 'archive_app_data_v3';
 
@@ -106,19 +107,13 @@ const ArchiveContext = createContext();
 const useArchive = () => useContext(ArchiveContext);
 
 const ArchiveProvider = ({ children }) => {
-  const [data, setData] = useState(() => {
-    try {
-      const localData = localStorage.getItem(STORAGE_KEY);
-      return localData ? JSON.parse(localData) : initialState;
-    } catch (e) {
-      return initialState;
-    }
-  });
+  const [data, setData] = useState(initialState);
+  const [user, setUser] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = useRef(null);
-  const saveTimeoutRef = useRef(null);
-
+  
   const showToast = (msg, type = 'info') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setToast({ msg, type });
@@ -126,16 +121,40 @@ const ArchiveProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } catch (e) {
-        showToast('Veri kaydedilemedi. Depolama alanı dolu olabilir.', 'error');
+    const unsubscribe = window.firebaseAuth.onAuthStateChanged(currentUser => {
+      setUser(currentUser);
+      if (currentUser) {
+        const docRef = window.firebaseDb.collection('users').doc(currentUser.uid);
+        const unsubscribeDb = docRef.onSnapshot(doc => {
+          if (doc.exists) {
+            setData({ ...initialState, ...doc.data() });
+          } else {
+            setData(initialState);
+            docRef.set(initialState);
+          }
+          setLoadingAuth(false);
+        });
+        return () => unsubscribeDb();
+      } else {
+        setData(initialState);
+        setLoadingAuth(false);
       }
-    }, 400);
-    return () => clearTimeout(saveTimeoutRef.current);
-  }, [data]);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const updateData = (updater) => {
+    setData(prev => {
+      const newData = typeof updater === 'function' ? updater(prev) : updater;
+      if (user) {
+        window.firebaseDb.collection('users').doc(user.uid).set(newData).catch(err => {
+          console.error(err);
+          showToast('Veri buluta kaydedilemedi!', 'error');
+        });
+      }
+      return newData;
+    });
+  };
 
   const addFolder = (name, parentId = null, color = '#71717a') => {
     const trimmed = name.trim();
@@ -143,20 +162,20 @@ const ArchiveProvider = ({ children }) => {
     const siblings = data.folders.filter(f => f.parentId === parentId);
     const order = siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
     const newFolder = { id: generateId(), name: trimmed, parentId, order, color };
-    setData(prev => ({ ...prev, folders: [...prev.folders, newFolder] }));
+    updateData(prev => ({ ...prev, folders: [...prev.folders, newFolder] }));
   };
 
   const updateFolder = (id, name, color) => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    setData(prev => ({
+    updateData(prev => ({
       ...prev,
       folders: prev.folders.map(f => f.id === id ? { ...f, name: trimmed, color } : f)
     }));
   };
 
   const deleteFolder = (id) => {
-    setData(prev => {
+    updateData(prev => {
       const updatedBooks = prev.books.map(b => b.folderId === id ? { ...b, folderId: null } : b);
       const updatedFolders = prev.folders
         .filter(f => f.id !== id)
@@ -167,7 +186,7 @@ const ArchiveProvider = ({ children }) => {
   };
 
   const reorderFolder = (id, direction) => {
-    setData(prev => {
+    updateData(prev => {
       const folder = prev.folders.find(f => f.id === id);
       if (!folder) return prev;
       const siblings = prev.folders.filter(f => f.parentId === folder.parentId).sort((a, b) => a.order - b.order);
@@ -218,25 +237,25 @@ const ArchiveProvider = ({ children }) => {
       inLibrary: false,
       isRead: false,
     };
-    setData(prev => ({ ...prev, books: [...prev.books, newBook] }));
+    updateData(prev => ({ ...prev, books: [...prev.books, newBook] }));
     showToast('Kitap başarıyla eklendi.');
     return true;
   };
 
   const updateBook = (id, updates) => {
-    setData(prev => ({
+    updateData(prev => ({
       ...prev,
       books: prev.books.map(b => b.id === id ? { ...b, ...updates } : b)
     }));
   };
 
   const deleteBook = (id) => {
-    setData(prev => ({ ...prev, books: prev.books.filter(b => b.id !== id) }));
+    updateData(prev => ({ ...prev, books: prev.books.filter(b => b.id !== id) }));
     showToast('Kitap silindi.');
   };
 
   const moveItemToPosition = (itemId, itemType, targetFolderId, anchorId = null, placement = 'end') => {
-    setData(prev => {
+    updateData(prev => {
       const item = itemType === 'folder' 
         ? prev.folders.find(f => f.id === itemId)
         : prev.books.find(b => b.id === itemId);
@@ -285,13 +304,14 @@ const ArchiveProvider = ({ children }) => {
       showToast('Geçersiz yedekleme dosyası formatı!', 'error');
       return false;
     }
-    setData(importedData);
+    updateData(importedData);
     showToast('Veriler başarıyla cihaza yüklendi!');
     return true;
   };
 
   return (
     <ArchiveContext.Provider value={{
+      user, loadingAuth,
       books: data.books, folders: data.folders,
       addFolder, updateFolder, deleteFolder, reorderFolder,
       addBook, updateBook, deleteBook, moveItemToPosition,
