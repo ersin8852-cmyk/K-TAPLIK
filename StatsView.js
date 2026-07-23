@@ -5,7 +5,7 @@ const StatBox = ({ label, value }) => (
   </div>
 );
 
-const StatsView = ({ onOpenProfile }) => {
+const StatsView = () => {
   const { books, folders, showToast } = useArchive();
 
   const stats = useMemo(() => {
@@ -49,24 +49,8 @@ const StatsView = ({ onOpenProfile }) => {
 
   return (
     <div className="h-full flex flex-col bg-zinc-50 relative">
-      <div className="sticky top-0 bg-zinc-50/90 backdrop-blur-md z-10 shadow-sm flex flex-col border-b border-zinc-200">
-        <div className="h-14 px-4 flex items-center justify-between">
-          <button onClick={onOpenProfile} className="p-2 -ml-2 text-zinc-600 hover:bg-zinc-100 rounded-full transition-colors">
-            <User size={22} />
-          </button>
-          <div className="flex-1 flex justify-center items-center">
-            {/* İleride buraya Logo gelecek */}
-          </div>
-          <div className="w-[38px]"></div> {/* Profil butonuyla dengelemek için boş div */}
-        </div>
-        <div className="p-4 py-3 min-h-[60px] flex items-center">
-          <div className="flex w-full justify-between items-start">
-            <div className="flex items-center gap-1.5 w-full px-2 py-1">
-              <BarChart3 size={18} className="mr-1" />
-              <h1 className="text-zinc-900 font-bold">Verilerim</h1>
-            </div>
-          </div>
-        </div>
+      <div className="p-4 pt-6 pb-3 sticky top-0 bg-zinc-50/90 backdrop-blur-md z-10 border-b border-zinc-200 flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Verilerim</h1>
       </div>
       <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-6">
         <section>
