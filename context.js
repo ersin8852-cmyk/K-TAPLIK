@@ -38,6 +38,7 @@ const Upload = pickIcon('Upload');
 const CornerDownRight = pickIcon('CornerDownRight');
 const Settings = pickIcon('Settings');
 const LogOut = pickIcon('LogOut');
+const User = pickIcon('User');
 
 const STORAGE_KEY = 'archive_app_data_v3';
 
@@ -54,6 +55,12 @@ const normalize = (str = '') =>
 const initialState = {
   books: [],
   folders: [],
+  profile: {
+    fullName: '',
+    username: '',
+    gender: '',
+    dob: ''
+  }
 };
 
 const processImageFile = (file) => {
@@ -309,13 +316,20 @@ const ArchiveProvider = ({ children }) => {
     return true;
   };
 
+  const updateProfileData = (profileUpdates) => {
+    updateData(prev => ({
+      ...prev,
+      profile: { ...(prev.profile || initialState.profile), ...profileUpdates }
+    }));
+  };
+
   return (
     <ArchiveContext.Provider value={{
       user, loadingAuth,
-      books: data.books, folders: data.folders,
+      books: data.books, folders: data.folders, profile: data.profile || initialState.profile,
       addFolder, updateFolder, deleteFolder, reorderFolder,
       addBook, updateBook, deleteBook, moveItemToPosition,
-      importData,
+      importData, updateProfileData,
       showToast, processImageFile
     }}>
       {children}

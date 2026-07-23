@@ -4,6 +4,8 @@ const AppLayout = () => {
   const [listsFolderId, setListsFolderId] = useState(null);
   const [libraryFolderId, setLibraryFolderId] = useState(null);
 
+  const [profileModalOpen, openProfileModal, closeProfileModal] = window.useHistoryModal('profile');
+
   React.useEffect(() => {
     if (!window.history.state) {
       window.history.replaceState({ tab: 'lists', listsId: null, libraryId: null }, '');
@@ -66,11 +68,12 @@ const AppLayout = () => {
   return (
     <div className="flex justify-center bg-white sm:bg-zinc-100 min-h-[100dvh]">
       <AuthModal isVisible={!user} />
+      <ProfileModal isOpen={profileModalOpen} onClose={closeProfileModal} />
       {user && (
         <div className="w-full sm:max-w-md bg-white h-[100dvh] flex flex-col relative sm:shadow-xl overflow-hidden">
           <div className="flex-1 overflow-hidden">
-            {activeTab === 'lists' && <ListsView activeFolderId={listsFolderId} setActiveFolderId={changeListsFolder} />}
-            {activeTab === 'library' && <LibraryView activeFolderId={libraryFolderId} setActiveFolderId={changeLibraryFolder} />}
+            {activeTab === 'lists' && <ListsView activeFolderId={listsFolderId} setActiveFolderId={changeListsFolder} onOpenProfile={openProfileModal} />}
+            {activeTab === 'library' && <LibraryView activeFolderId={libraryFolderId} setActiveFolderId={changeLibraryFolder} onOpenProfile={openProfileModal} />}
             {activeTab === 'stats' && <StatsView />}
           </div>
           <div className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-zinc-200 pb-safe z-30">
