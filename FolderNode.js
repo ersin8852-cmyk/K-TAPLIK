@@ -23,7 +23,7 @@ const FolderNode = React.memo(({ folder, allFolders, allBooks, onOpenFolder, onE
         className={`group flex items-center justify-between p-3.5 rounded-xl transition-all border shadow-sm cursor-pointer ml-2 sm:ml-4 relative select-none
           ${isDropInside ? 'bg-zinc-900/5 border-zinc-900 border-dashed scale-[1.02]' : 'bg-white border-zinc-200 hover:border-zinc-300 hover:shadow-md'}
           ${isBeingDragged ? 'opacity-0' : ''}`}
-        onPointerDown={handlePointerDown}
+        onPointerDown={isLibraryView ? undefined : handlePointerDown}
         onClick={handleClick}
       >
 
@@ -44,7 +44,9 @@ const FolderNode = React.memo(({ folder, allFolders, allBooks, onOpenFolder, onE
         </div>
 
         <div className="flex items-center gap-1.5 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2 relative z-30">
-          <button onClick={(e) => { e.stopPropagation(); onEdit(folder.id); }} className="p-2 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-xl transition-colors pointer-events-auto" title="Ayarlar"><Settings size={16} /></button>
+          {!isLibraryView && (
+            <button onClick={(e) => { e.stopPropagation(); onEdit(folder.id); }} className="p-2 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-xl transition-colors pointer-events-auto" title="Ayarlar"><Settings size={16} /></button>
+          )}
         </div>
       </div>
       {isDropAfter && <div className="absolute -bottom-1 left-4 right-4 h-0.5 bg-zinc-900 rounded-full z-10" />}

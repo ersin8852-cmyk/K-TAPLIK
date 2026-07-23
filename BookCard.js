@@ -21,7 +21,7 @@ const BookCard = React.memo(({ book, onOpen, showIndicator = false, folderPath =
       data-item-type="book"
       data-item-folder={containerFolderId || 'root'}
       className={`group flex items-center justify-between p-3 bg-white border border-zinc-100 rounded-xl shadow-sm hover:border-zinc-300 ml-2 sm:ml-4 cursor-pointer transition-colors select-none ${isBeingDragged ? 'opacity-0' : ''}`}
-      onPointerDown={handlePointerDown}
+      onPointerDown={isLibraryView ? undefined : handlePointerDown}
       onClick={handleClick}
     >
       <div className="flex-1 flex items-center gap-3 overflow-hidden">
