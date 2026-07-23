@@ -1,4 +1,3 @@
-const { useState } = window.React;
 const { Mail, Lock, LogIn, UserPlus, User, Calendar, CheckSquare, Square } = window.LucideReact;
 
 const AuthModal = ({ isVisible }) => {
