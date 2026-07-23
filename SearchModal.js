@@ -62,6 +62,11 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
         if (capabilities.exposureMode?.includes("continuous")) newConstraints.exposureMode = "continuous";
         if (capabilities.whiteBalanceMode?.includes("continuous")) newConstraints.whiteBalanceMode = "continuous";
 
+        if (capabilities.zoom) {
+          const maxZoom = capabilities.zoom.max || 2;
+          newConstraints.zoom = Math.min(2, maxZoom);
+        }
+
         if (Object.keys(newConstraints).length > 0) {
           await safelyApplyConstraints(track, newConstraints);
         }
