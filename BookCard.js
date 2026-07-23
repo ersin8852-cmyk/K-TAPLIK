@@ -2,7 +2,7 @@ const { useLayoutEffect } = React;
 
 // _isDragActive logic moved to context.js
 
-const BookCard = React.memo(({ book, onOpen, showIndicator = false, folderPath = null, onNavigate = null, containerFolderId = null, index }) => {
+const BookCard = React.memo(({ book, onOpen, showIndicator = false, folderPath = null, onNavigate = null, containerFolderId = null, index, isLibraryView = false }) => {
   const handleNavigateOrOpen = (item) => {
     if (onNavigate) {
       onNavigate(item);
