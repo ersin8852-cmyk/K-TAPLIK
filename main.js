@@ -74,7 +74,7 @@ const AppLayout = () => {
           <div className="flex-1 overflow-hidden">
             {activeTab === 'lists' && <ListsView activeFolderId={listsFolderId} setActiveFolderId={changeListsFolder} onOpenProfile={openProfileModal} />}
             {activeTab === 'library' && <LibraryView activeFolderId={libraryFolderId} setActiveFolderId={changeLibraryFolder} onOpenProfile={openProfileModal} />}
-            {activeTab === 'stats' && <StatsView />}
+            {activeTab === 'stats' && <StatsView onOpenProfile={openProfileModal} />}
           </div>
           <div className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-zinc-200 pb-safe z-30">
             <div className="flex justify-around items-center px-2 py-2">

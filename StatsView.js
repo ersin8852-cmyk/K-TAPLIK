@@ -5,38 +5,8 @@ const StatBox = ({ label, value }) => (
   </div>
 );
 
-const StatsView = () => {
-  const { books, folders, importData, showToast } = useArchive();
-  const fileInputRef = useRef(null);
-
-  const handleExport = () => {
-    const dataStr = JSON.stringify({ books, folders }, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const date = new Date().toISOString().split('T')[0];
-    a.download = `kutuphane_yedegi_${date}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('Yedekleme dosyası cihazınıza indirildi.');
-  };
-
-  const handleImport = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const parsed = JSON.parse(event.target.result);
-        importData(parsed);
-      } catch (err) {
-        showToast('Dosya okunamadı veya geçersiz format.', 'error');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
+const StatsView = ({ onOpenProfile }) => {
+  const { books, folders, showToast } = useArchive();
 
   const stats = useMemo(() => {
     const libBooks = books.filter(b => b.inLibrary);
@@ -77,22 +47,26 @@ const StatsView = () => {
     return { list: listS, lib: libS, read: { rCount: read.length, rPages, uCount: unread.length, uPages } };
   }, [books]);
 
-  const handleLogout = async () => {
-    try {
-      await window.firebaseAuth.signOut();
-    } catch (err) {
-      console.error(err);
-      showToast('Çıkış yapılamadı!', 'error');
-    }
-  };
-
   return (
-    <div className="h-full flex flex-col bg-zinc-50">
-      <div className="p-4 pt-6 pb-3 sticky top-0 bg-zinc-50/90 backdrop-blur-md z-10 border-b border-zinc-200 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Verilerim</h1>
-        <button onClick={handleLogout} className="text-sm font-medium text-red-600 hover:bg-red-50 px-3 py-1 rounded-full transition-colors flex items-center gap-1">
-          <LogOut size={16} /> Çıkış Yap
-        </button>
+    <div className="h-full flex flex-col bg-zinc-50 relative">
+      <div className="sticky top-0 bg-zinc-50/90 backdrop-blur-md z-10 shadow-sm flex flex-col border-b border-zinc-200">
+        <div className="h-14 px-4 flex items-center justify-between">
+          <button onClick={onOpenProfile} className="p-2 -ml-2 text-zinc-600 hover:bg-zinc-100 rounded-full transition-colors">
+            <User size={22} />
+          </button>
+          <div className="flex-1 flex justify-center items-center">
+            {/* İleride buraya Logo gelecek */}
+          </div>
+          <div className="w-[38px]"></div> {/* Profil butonuyla dengelemek için boş div */}
+        </div>
+        <div className="p-4 py-3 min-h-[60px] flex items-center">
+          <div className="flex w-full justify-between items-start">
+            <div className="flex items-center gap-1.5 w-full px-2 py-1">
+              <BarChart3 size={18} className="mr-1" />
+              <h1 className="text-zinc-900 font-bold">Verilerim</h1>
+            </div>
+          </div>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-6">
         <section>
@@ -135,21 +109,6 @@ const StatsView = () => {
           </div>
         </section>
 
-        <section>
-          <h2 className="text-sm font-bold text-zinc-700 mb-3 flex items-center gap-1.5"><Download size={16} className="text-zinc-400"/> Yedekleme & Geri Yükleme</h2>
-          <div className="bg-white border border-zinc-100 p-4 rounded-xl shadow-sm flex flex-col gap-3">
-            <p className="text-xs text-zinc-500 leading-relaxed">Uygulama verilerinizi cihazınıza dosya olarak indirebilir veya daha önce indirdiğiniz bir dosyayı (başka bir cihazdan) içeri aktarabilirsiniz.</p>
-            <div className="flex gap-2">
-              <button onClick={handleExport} className="flex-1 py-2.5 bg-zinc-900 text-white rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
-                <Download size={16} /> Yedekle
-              </button>
-              <button onClick={() => fileInputRef.current.click()} className="flex-1 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-xl text-sm font-medium hover:bg-zinc-50 transition-colors flex items-center justify-center gap-2">
-                <Upload size={16} /> Geri Yükle
-              </button>
-              <input type="file" accept=".json" ref={fileInputRef} onChange={handleImport} className="hidden" />
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   );
