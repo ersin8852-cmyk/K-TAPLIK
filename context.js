@@ -39,6 +39,14 @@ const CornerDownRight = pickIcon('CornerDownRight');
 const Settings = pickIcon('Settings');
 const LogOut = pickIcon('LogOut');
 const User = pickIcon('User');
+const Mail = pickIcon('Mail');
+const Lock = pickIcon('Lock');
+const LogIn = pickIcon('LogIn');
+const UserPlus = pickIcon('UserPlus');
+const Calendar = pickIcon('Calendar');
+const CheckSquare = pickIcon('CheckSquare');
+const Square = pickIcon('Square');
+const ArrowLeft = pickIcon('ArrowLeft');
 
 const STORAGE_KEY = 'archive_app_data_v3';
 

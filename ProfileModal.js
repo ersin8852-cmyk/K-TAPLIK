@@ -1,4 +1,4 @@
-const { ArrowLeft, User, Lock, Mail, Calendar, LogOut, Check, ChevronRight } = window.LucideReact;
+
 
 const ProfileModal = ({ isOpen, onClose }) => {
   const { user, profile, updateProfileData, showToast } = useArchive();
