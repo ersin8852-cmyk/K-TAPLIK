@@ -66,7 +66,12 @@ const ItemList = React.memo(({ ids, items, folders, books, folderKey, onOpenBook
           key="__gap__"
           ref={el => { if (el) nodeRefs.current.set('__gap__', el); else nodeRefs.current.delete('__gap__'); }}
           data-drop-gap="true"
-          style={{ height: cardSize.height || 64, transition: 'height 220ms cubic-bezier(0.2,0,0,1)' }}
+          style={{ 
+            height: cardSize.height || 64, 
+            transition: 'height 220ms cubic-bezier(0.2,0,0,1)',
+            position: 'relative',
+            zIndex: 50
+          }}
         />
       );
     }
