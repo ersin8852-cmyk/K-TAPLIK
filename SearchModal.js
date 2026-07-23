@@ -29,6 +29,7 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
     
     let html5Scanner = null;
     let zxingScanner = null;
+    let optimizeTimeout = null;
 
     const onScanSuccess = (decodedText) => {
       if (!isComponentMounted) return;
@@ -39,6 +40,46 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
       if (zxingScanner) zxingScanner.reset();
       
       performSearch(decodedText);
+    };
+
+    const safelyApplyConstraints = async (track, constraints) => {
+      try {
+        const current = track.getConstraints();
+        await track.applyConstraints({ ...current, ...constraints });
+        return true;
+      } catch (e) {
+        try {
+          const current = track.getConstraints();
+          await track.applyConstraints({ ...current, advanced: [constraints] });
+          return true;
+        } catch (e2) {
+          return false;
+        }
+      }
+    };
+
+    const optimizeOpenedCamera = async (track) => {
+      if (!track || !isComponentMounted) return;
+      try {
+        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+        let newConstraints = {};
+        
+        if (capabilities.focusDistance) newConstraints.focusDistance = { ideal: capabilities.focusDistance.min || 0 };
+        else if (capabilities.focusMode?.includes("macro")) newConstraints.focusMode = "macro";
+        else if (capabilities.focusMode?.includes("continuous")) newConstraints.focusMode = "continuous";
+
+        if (capabilities.exposureMode?.includes("continuous")) newConstraints.exposureMode = "continuous";
+        if (capabilities.whiteBalanceMode?.includes("continuous")) newConstraints.whiteBalanceMode = "continuous";
+
+        if (capabilities.zoom) {
+          const maxZoom = capabilities.zoom.max || 2;
+          newConstraints.zoom = Math.min(2, maxZoom);
+        }
+
+        if (Object.keys(newConstraints).length > 0) {
+          await safelyApplyConstraints(track, newConstraints);
+        }
+      } catch (err) {}
     };
 
     if (isIOS && window.ZXing) {
@@ -61,50 +102,25 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
           showToast('Kamera başlatılamadı.', 'error');
         }
       });
+
+      const applyZXingZoom = () => {
+        if (!isComponentMounted) return;
+        const videoEl = document.getElementById("zxing-reader");
+        if (videoEl && videoEl.srcObject) {
+          const track = videoEl.srcObject.getVideoTracks()[0];
+          if (track) {
+             optimizeOpenedCamera(track);
+             return;
+          }
+        }
+        optimizeTimeout = setTimeout(applyZXingZoom, 300);
+      };
+      applyZXingZoom();
+
     } else {
       console.log("Android/Diğer tespit edildi, Html5Qrcode başlatılıyor...");
       html5Scanner = new window.Html5Qrcode("reader");
       scannerRef.current = html5Scanner;
-
-      const safelyApplyConstraints = async (track, constraints) => {
-        try {
-          const current = track.getConstraints();
-          await track.applyConstraints({ ...current, ...constraints });
-          return true;
-        } catch (e) {
-          try {
-            const current = track.getConstraints();
-            await track.applyConstraints({ ...current, advanced: [constraints] });
-            return true;
-          } catch (e2) {
-            return false;
-          }
-        }
-      };
-
-      const optimizeOpenedCamera = async (track) => {
-        if (!track || !isComponentMounted) return;
-        try {
-          const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-          let newConstraints = {};
-          
-          if (capabilities.focusDistance) newConstraints.focusDistance = { ideal: capabilities.focusDistance.min || 0 };
-          else if (capabilities.focusMode?.includes("macro")) newConstraints.focusMode = "macro";
-          else if (capabilities.focusMode?.includes("continuous")) newConstraints.focusMode = "continuous";
-
-          if (capabilities.exposureMode?.includes("continuous")) newConstraints.exposureMode = "continuous";
-          if (capabilities.whiteBalanceMode?.includes("continuous")) newConstraints.whiteBalanceMode = "continuous";
-
-          if (capabilities.zoom) {
-            const maxZoom = capabilities.zoom.max || 2;
-            newConstraints.zoom = Math.min(2, maxZoom);
-          }
-
-          if (Object.keys(newConstraints).length > 0) {
-            await safelyApplyConstraints(track, newConstraints);
-          }
-        } catch (err) {}
-      };
 
       const fallbackCameraStrategy = async () => {
         if (!isComponentMounted) return;
@@ -150,6 +166,7 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
 
     return () => {
       isComponentMounted = false;
+      if (optimizeTimeout) clearTimeout(optimizeTimeout);
       if (html5Scanner && html5Scanner.isScanning) {
         html5Scanner.stop().catch(() => {});
       }
