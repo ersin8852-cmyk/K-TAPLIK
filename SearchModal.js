@@ -97,13 +97,19 @@ const SearchAddModal = ({ isOpen, onClose, folderId, onOpenManualAdd }) => {
     const createCameraStream = async () => {
       try {
         await scanner.start(
-          { facingMode: "environment" },
-          { 
-            fps: 15, 
-            videoConstraints: { 
+          {
+            facingMode: "environment"
+          },
+          {
+            fps: 10,
+            qrbox: {
+              width: 300,
+              height: 180
+            },
+            videoConstraints: {
               facingMode: "environment",
-              width: { ideal: 1920 }, 
-              height: { ideal: 1080 } 
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
             }
           },
           onScanSuccess,
