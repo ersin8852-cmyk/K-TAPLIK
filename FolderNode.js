@@ -26,16 +26,7 @@ const FolderNode = React.memo(({ folder, allFolders, allBooks, onOpenFolder, onE
         onPointerDown={handlePointerDown}
         onClick={handleClick}
       >
-        {draggedId && (
-          <div 
-            data-drop-inside={folder.id}
-            className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-24 z-20 flex items-center justify-center pointer-events-auto"
-          >
-            <div className="bg-white shadow-md border border-zinc-200 text-zinc-700 w-8 h-8 rounded-full flex items-center justify-center pointer-events-none transition-transform hover:scale-110">
-              <CornerDownRight size={16} />
-            </div>
-          </div>
-        )}
+
         <div className="flex items-center gap-3 flex-1 overflow-hidden pointer-events-none">
           {index != null && (
             <span className="text-zinc-400 font-semibold text-sm w-5 text-right shrink-0">{index}.</span>

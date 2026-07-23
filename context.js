@@ -599,16 +599,39 @@ const DragDropProvider = ({ children, onDrop }) => {
       } else {
         const rect = itemEl.getBoundingClientRect();
         const ratio = (y - rect.top) / rect.height;
+        const isFolder = itemEl.dataset.itemType === 'folder';
         const currentPlacement = overTargetRef.current && overTargetRef.current.id === itemEl.dataset.itemTarget
           ? overTargetRef.current.placement : null;
         let placement;
-        if (currentPlacement === 'before') {
-          placement = ratio > 0.65 ? 'after' : 'before';
-        } else if (currentPlacement === 'after') {
-          placement = ratio < 0.35 ? 'before' : 'after';
+
+        if (isFolder) {
+          if (currentPlacement === 'before') {
+            if (ratio > 0.75) placement = 'after';
+            else if (ratio >= 0.35) placement = 'inside';
+            else placement = 'before';
+          } else if (currentPlacement === 'after') {
+            if (ratio < 0.25) placement = 'before';
+            else if (ratio <= 0.65) placement = 'inside';
+            else placement = 'after';
+          } else if (currentPlacement === 'inside') {
+            if (ratio < 0.2) placement = 'before';
+            else if (ratio > 0.8) placement = 'after';
+            else placement = 'inside';
+          } else {
+            if (ratio < 0.25) placement = 'before';
+            else if (ratio > 0.75) placement = 'after';
+            else placement = 'inside';
+          }
         } else {
-          placement = ratio < 0.5 ? 'before' : 'after';
+          if (currentPlacement === 'before') {
+            placement = ratio > 0.65 ? 'after' : 'before';
+          } else if (currentPlacement === 'after') {
+            placement = ratio < 0.35 ? 'before' : 'after';
+          } else {
+            placement = ratio < 0.5 ? 'before' : 'after';
+          }
         }
+        
         next = { 
           type: itemEl.dataset.itemType, 
           id: itemEl.dataset.itemTarget, 
