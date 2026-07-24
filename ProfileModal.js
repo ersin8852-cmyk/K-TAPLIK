@@ -72,7 +72,7 @@ const ProfileModal = ({ isOpen, onClose }) => {
     }
   };
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-white z-[100] flex flex-col sm:max-w-md sm:mx-auto sm:shadow-2xl">
       <div className="h-14 px-4 flex items-center justify-between border-b border-zinc-200 bg-white sticky top-0 z-10 shrink-0">
         <div className="flex items-center gap-3">
@@ -161,7 +161,8 @@ const ProfileModal = ({ isOpen, onClose }) => {
         )}
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

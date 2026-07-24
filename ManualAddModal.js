@@ -33,7 +33,7 @@ const ManualAddModal = ({ isOpen, onClose, folderId }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 z-[100]">
       <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh] sm:h-auto animate-in slide-in-from-bottom-10">
         <div className="p-4 border-b flex justify-between items-start bg-zinc-50 relative gap-3">
@@ -76,6 +76,7 @@ const ManualAddModal = ({ isOpen, onClose, folderId }) => {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
