@@ -8,8 +8,8 @@ const useOverTarget = () => useContext(OverTargetContext);
 
 const AUTOSCROLL_EDGE = 70;
 const AUTOSCROLL_MAX_SPEED = 14;
-const HIT_TEST_INTERVAL = 30;
-const STABLE_THRESHOLD = 1;
+const HIT_TEST_INTERVAL = 80;
+const STABLE_THRESHOLD = 2;
 
 let _isDragActive = false;
 document.addEventListener('touchmove', (e) => {
