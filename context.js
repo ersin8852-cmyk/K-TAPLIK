@@ -308,8 +308,22 @@ const ArchiveProvider = ({ children }) => {
 
       return {
         ...prev,
-        folders: prev.folders.map(f => reorderedFolders.has(f.id) ? { ...reorderedFolders.get(f.id), _type: undefined } : f),
-        books: prev.books.map(b => reorderedBooks.has(b.id) ? { ...reorderedBooks.get(b.id), _type: undefined } : b)
+        folders: prev.folders.map(f => {
+          if (reorderedFolders.has(f.id)) {
+            const newF = { ...reorderedFolders.get(f.id) };
+            delete newF._type;
+            return newF;
+          }
+          return f;
+        }),
+        books: prev.books.map(b => {
+          if (reorderedBooks.has(b.id)) {
+            const newB = { ...reorderedBooks.get(b.id) };
+            delete newB._type;
+            return newB;
+          }
+          return b;
+        })
       };
     });
   };
