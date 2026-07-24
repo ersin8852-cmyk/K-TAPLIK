@@ -135,15 +135,25 @@ const ProfileModal = ({ isOpen, onClose }) => {
           
           <div>
             <label className="block text-xs font-semibold text-zinc-500 mb-1.5 ml-1">Ad Soyad</label>
-            <input type="text" placeholder="Bilgilerinizi girin" value={fullName} onChange={e => setFullName(e.target.value)} disabled={!isEditing} className={`w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${!isEditing ? 'bg-transparent border-transparent text-zinc-900 font-medium px-1' : 'bg-zinc-50 border border-zinc-200 text-zinc-700'}`} />
+            {isEditing ? (
+              <input type="text" placeholder="Bilgilerinizi girin" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-zinc-700" />
+            ) : (
+              <div className="w-full px-1 py-2.5 text-sm font-medium text-zinc-900">{fullName || '-'}</div>
+            )}
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-zinc-500 mb-1.5 ml-1">Kullanıcı Adı</label>
-            <div className="relative">
-              <span className={`absolute left-3 top-2.5 font-bold text-sm ${!isEditing ? 'text-zinc-500 left-1' : 'text-zinc-400'}`}>@</span>
-              <input type="text" placeholder="Bilgilerinizi girin" value={username} onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))} disabled={!isEditing} className={`w-full pr-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${!isEditing ? 'bg-transparent border-transparent text-zinc-900 font-medium pl-5' : 'bg-zinc-50 border border-zinc-200 text-zinc-700 pl-8'}`} />
-            </div>
+            {isEditing ? (
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 font-bold text-sm text-zinc-400">@</span>
+                <input type="text" placeholder="Bilgilerinizi girin" value={username} onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))} className="w-full pl-8 pr-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-zinc-700" />
+              </div>
+            ) : (
+              <div className="w-full px-1 py-2.5 text-sm font-medium text-zinc-900">
+                <span className="text-zinc-500 mr-0.5">@</span>{username || '-'}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3">
