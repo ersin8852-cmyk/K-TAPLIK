@@ -67,13 +67,17 @@ const ProfileModal = ({ isOpen, onClose }) => {
     }
   };
 
+  const [loggingOut, setLoggingOut] = useState(false);
+
   const handleLogout = async () => {
     try {
+      setLoggingOut(true);
+      await new Promise(r => setTimeout(r, 800));
       await window.firebaseAuth.signOut();
       onClose();
     } catch (err) {
-      console.error(err);
-      showToast('Çıkış yapılamadı!', 'error');
+      showToast('Çıkış yapılamadı.', 'error');
+      setLoggingOut(false);
     }
   };
 
@@ -86,8 +90,8 @@ const ProfileModal = ({ isOpen, onClose }) => {
           </button>
           <span className="font-bold text-lg text-zinc-800">Profilim</span>
         </div>
-        <button onClick={handleLogout} className="p-2 -mr-2 text-red-500 hover:bg-red-50 rounded-full transition-colors" title="Çıkış Yap">
-          <LogOut size={20} />
+        <button onClick={handleLogout} disabled={loggingOut} className="p-2 -mr-2 text-red-500 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50 flex items-center justify-center" title="Çıkış Yap">
+          {loggingOut ? <div className="w-5 h-5 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin"></div> : <LogOut size={20} />}
         </button>
       </div>
 
