@@ -64,7 +64,8 @@ const ListCreateModal = ({ isOpen, onClose, onCreate, parentId }) => {
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
