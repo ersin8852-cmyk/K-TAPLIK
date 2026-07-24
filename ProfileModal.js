@@ -1,22 +1,26 @@
 
 
 const ProfileModal = ({ isOpen, onClose }) => {
-  const { user, profile, updateProfileData, showToast } = useArchive();
+  const { user, profile, updateProfileData, showToast, processImageFile } = useArchive();
   
+  const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(profile?.fullName || '');
   const [username, setUsername] = useState(profile?.username || '');
   const [gender, setGender] = useState(profile?.gender || '');
   const [dob, setDob] = useState(profile?.dob || '');
+  const [photo, setPhoto] = useState(profile?.photo || '');
   
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      setIsEditing(false);
       setFullName(profile?.fullName || '');
       setUsername(profile?.username || '');
       setGender(profile?.gender || '');
       setDob(profile?.dob || '');
+      setPhoto(profile?.photo || '');
       setPassword('');
     }
   }, [isOpen, profile]);
@@ -30,8 +34,9 @@ const ProfileModal = ({ isOpen, onClose }) => {
         await user.updateProfile({ displayName: fullName });
       }
       
-      updateProfileData({ fullName, username, gender, dob });
+      updateProfileData({ fullName, username, gender, dob, photo });
       showToast('Profil bilgileriniz güncellendi.');
+      setIsEditing(false);
     } catch (err) {
       console.error(err);
       showToast('Profil güncellenemedi.', 'error');
@@ -89,61 +94,90 @@ const ProfileModal = ({ isOpen, onClose }) => {
       <div className="flex-1 overflow-y-auto p-5 bg-zinc-50 pb-safe space-y-6">
         
         <div className="flex flex-col items-center pt-2 pb-4">
-          <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-indigo-600 text-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg shadow-blue-500/30 mb-3">
-            {fullName ? fullName.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : <User size={40}/>)}
+          <div className="relative group">
+            <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-indigo-600 text-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg shadow-blue-500/30 mb-3 overflow-hidden border-2 border-white">
+              {photo ? (
+                <img src={photo} alt="" className="w-full h-full object-cover" />
+              ) : (
+                fullName ? fullName.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : <User size={40}/>)
+              )}
+            </div>
+            {isEditing && (
+              <>
+                <div className="absolute inset-0 mb-3 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full z-20 cursor-pointer">
+                  <Camera size={24} className="text-white" />
+                </div>
+                <input type="file" accept="image/*" className="absolute inset-0 mb-3 opacity-0 cursor-pointer z-30" onChange={async (e) => {
+                  try {
+                    if (e.target.files[0]) {
+                      const b64 = await processImageFile(e.target.files[0]);
+                      setPhoto(b64);
+                    }
+                  } catch (err) {
+                    showToast(err.message, 'error');
+                  }
+                }} />
+              </>
+            )}
           </div>
           <h2 className="text-xl font-bold text-zinc-900">{fullName || 'İsimsiz Kullanıcı'}</h2>
-          <p className="text-sm text-zinc-500 mt-1">{user.email}</p>
         </div>
 
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-zinc-100 space-y-4">
-          <h3 className="font-bold text-zinc-800 text-sm flex items-center gap-2 mb-2">
-            <User size={16} className="text-blue-500" /> Kişisel Bilgiler
-          </h3>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-bold text-zinc-800 text-sm flex items-center gap-2">
+              <User size={16} className="text-blue-500" /> Kişisel Bilgiler
+            </h3>
+            <button onClick={() => { if(isEditing) { setFullName(profile?.fullName || ''); setUsername(profile?.username || ''); setGender(profile?.gender || ''); setDob(profile?.dob || ''); setPhoto(profile?.photo || ''); setIsEditing(false); } else { setIsEditing(true); } }} className="text-xs font-semibold text-blue-600 hover:text-blue-700 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+              {isEditing ? 'İptal' : 'Düzenle'}
+            </button>
+          </div>
           
           <div>
             <label className="block text-xs font-semibold text-zinc-500 mb-1.5 ml-1">Ad Soyad</label>
-            <input type="text" placeholder="Bilgilerinizi girin" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+            <input type="text" placeholder="Bilgilerinizi girin" value={fullName} onChange={e => setFullName(e.target.value)} disabled={!isEditing} className={`w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${!isEditing ? 'bg-transparent border-transparent text-zinc-900 font-medium px-1' : 'bg-zinc-50 border border-zinc-200 text-zinc-700'}`} />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-zinc-500 mb-1.5 ml-1">Kullanıcı Adı</label>
             <div className="relative">
-              <span className="absolute left-3 top-2.5 text-zinc-400 font-bold text-sm">@</span>
-              <input type="text" placeholder="Bilgilerinizi girin" value={username} onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))} className="w-full pl-8 pr-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+              <span className={`absolute left-3 top-2.5 font-bold text-sm ${!isEditing ? 'text-zinc-500 left-1' : 'text-zinc-400'}`}>@</span>
+              <input type="text" placeholder="Bilgilerinizi girin" value={username} onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))} disabled={!isEditing} className={`w-full pr-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${!isEditing ? 'bg-transparent border-transparent text-zinc-900 font-medium pl-5' : 'bg-zinc-50 border border-zinc-200 text-zinc-700 pl-8'}`} />
             </div>
           </div>
 
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="block text-xs font-semibold text-zinc-500 mb-1.5 ml-1">Cinsiyet</label>
-              <select value={gender} onChange={e => setGender(e.target.value)} className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none text-zinc-700">
-                <option value="" disabled>Bilgilerinizi girin</option>
-                <option value="Kadin">Kadın</option>
-                <option value="Erkek">Erkek</option>
-                <option value="Belirtmek Istemiyorum">Belirtmek İstemiyorum</option>
-              </select>
+              {isEditing ? (
+                <select value={gender} onChange={e => setGender(e.target.value)} className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none text-zinc-700">
+                  <option value="" disabled>Bilgilerinizi girin</option>
+                  <option value="Kadin">Kadın</option>
+                  <option value="Erkek">Erkek</option>
+                  <option value="Belirtmek Istemiyorum">Belirtmek İstemiyorum</option>
+                </select>
+              ) : (
+                <div className="w-full px-1 py-2.5 text-sm font-medium text-zinc-900">{gender || '-'}</div>
+              )}
             </div>
             <div className="flex-1">
               <label className="block text-xs font-semibold text-zinc-500 mb-1.5 ml-1">Doğum Tarihi</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-2.5 text-zinc-400" size={16} />
-                <input type="date" value={dob} onChange={e => setDob(e.target.value)} className="w-full pl-9 pr-2 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-zinc-700" />
-              </div>
+              {isEditing ? (
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-2.5 text-zinc-400" size={16} />
+                  <input type="date" value={dob} onChange={e => setDob(e.target.value)} className="w-full pl-9 pr-2 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-zinc-700" />
+                </div>
+              ) : (
+                <div className="w-full px-1 py-2.5 text-sm font-medium text-zinc-900">{dob || '-'}</div>
+              )}
             </div>
           </div>
 
-          <button onClick={handleSave} disabled={loading} className="w-full py-3 mt-2 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
-            {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <><Check size={16} /> Bilgileri Kaydet</>}
-          </button>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-zinc-100 space-y-4">
-          <h3 className="font-bold text-zinc-800 text-sm flex items-center gap-2 mb-2">
-            <Mail size={16} className="text-zinc-400" /> E-posta Adresi
-          </h3>
-          <input type="email" value={user.email || ''} readOnly className="w-full px-4 py-2.5 bg-zinc-100 border border-zinc-200 rounded-xl text-sm text-zinc-500 cursor-not-allowed" />
-          <p className="text-[10px] text-zinc-400 ml-1">E-posta adresi değiştirilemez.</p>
+          {isEditing && (
+            <button onClick={handleSave} disabled={loading} className="w-full py-3 mt-2 bg-zinc-900 text-white rounded-xl font-medium hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
+              {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <><Check size={16} /> Bilgileri Kaydet</>}
+            </button>
+          )}
         </div>
 
         {user.providerData.some(p => p.providerId === 'password') && (
