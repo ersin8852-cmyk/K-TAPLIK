@@ -12,6 +12,7 @@ const ProfileModal = ({ isOpen, onClose }) => {
   
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -66,8 +67,6 @@ const ProfileModal = ({ isOpen, onClose }) => {
       setLoading(false);
     }
   };
-
-  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
     try {
