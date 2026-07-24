@@ -248,6 +248,8 @@ const DragDropProvider = ({ children, onDrop }) => {
 
   const ghostRef = useRef(null);
   const pointerRef = useRef({ x: 0, y: 0 });
+  const onDropRef = useRef(onDrop);
+  useEffect(() => { onDropRef.current = onDrop; }, [onDrop]);
   const offsetRef = useRef({ x: 0, y: 0 });
   const rafRef = useRef(null);
   const draggedIdRef = useRef(null);
@@ -425,10 +427,10 @@ const DragDropProvider = ({ children, onDrop }) => {
 
       if (t.placement === 'inside') {
         const targetFolderId = t.id === 'root' ? null : t.id;
-        onDrop(draggedIdRef.current, itemType, targetFolderId, null, 'end');
+        onDropRef.current(draggedIdRef.current, itemType, targetFolderId, null, 'end');
       } else {
         const targetFolderId = t.folderId === 'root' ? null : t.folderId;
-        onDrop(draggedIdRef.current, itemType, targetFolderId, t.id, t.placement);
+        onDropRef.current(draggedIdRef.current, itemType, targetFolderId, t.id, t.placement);
       }
     }
     draggedIdRef.current = null;
