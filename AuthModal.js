@@ -103,13 +103,16 @@ const AuthModal = ({ isVisible }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
-      <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative my-auto">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
-        
-        <div className="text-center mb-6 mt-2">
+    <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-6 overflow-y-auto pb-safe animate-in fade-in duration-300">
+      <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+      
+      <div className="w-full max-w-sm relative my-auto py-8">
+        <div className="text-center mb-8 mt-2">
+          <div className="w-20 h-20 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-[1.5rem] mx-auto mb-6 flex items-center justify-center shadow-lg shadow-blue-500/30">
+            <Library size={40} className="text-white" />
+          </div>
           <h2 className="text-2xl font-bold text-zinc-900">{isLogin ? 'Hoş Geldiniz' : 'Hesap Oluşturun'}</h2>
-          <p className="text-zinc-500 text-sm mt-1">
+          <p className="text-zinc-500 text-sm mt-2">
             {isLogin ? 'Kitaplığınıza erişmek için giriş yapın' : 'Bulut kütüphanenizi hemen oluşturun'}
           </p>
         </div>
